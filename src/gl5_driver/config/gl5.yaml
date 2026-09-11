@@ -1,0 +1,11 @@
+gl5_node:
+  ros__parameters:
+    # Verified on hardware: SDK UDP port is 2000 (2020 refused).
+    sensor_ip: "10.110.1.2"
+    sensor_port: 2000
+    pc_ip: "10.110.1.3"
+    pc_port: 3000
+    frame_id: "laser"
+    range_min: 0.0
+    range_max: 60.0
+    angle_offset: 0.0

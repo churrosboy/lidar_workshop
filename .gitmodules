@@ -1,0 +1,3 @@
+[submodule "SOSLAB_SDK"]
+	path = SOSLAB_SDK
+	url = https://github.com/SOSLAB-github/SOSLAB_SDK.git

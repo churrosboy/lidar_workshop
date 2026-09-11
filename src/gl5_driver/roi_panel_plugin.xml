@@ -1,0 +1,5 @@
+<library path="gl5_roi_panel">
+  <class name="gl5_driver/RegionPanel" type="gl5_driver::RegionPanel" base_class_type="rviz_common::Panel">
+    <description>GL5 polygon editing, clear and status controls.</description>
+  </class>
+</library>

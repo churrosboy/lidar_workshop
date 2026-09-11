@@ -1,0 +1,12 @@
+# Build outputs and runtime logs
+/build/
+/install/
+/log/
+/artifacts/
+/SOSLAB_SDK/build/
+/SOSLAB_SDK/_archive_/
+__pycache__/
+*.py[cod]
+
+# Local detection region
+/config/gl5_region.json

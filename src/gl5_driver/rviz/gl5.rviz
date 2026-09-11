@@ -1,0 +1,92 @@
+Panels:
+  - Class: gl5_driver/RegionPanel
+    Name: GL5 Region Controls
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Detection region and obstacles
+      Enabled: true
+      Topic:
+        Value: /gl5/obstacle_markers
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Depth: 1
+    - Class: rviz_default_plugins/Grid
+      Name: Grid (1 m)
+      Enabled: true
+      Plane: XY
+      Cell Size: 1
+      Plane Cell Count: 40
+      Color: 90; 100; 110
+    - Class: rviz_default_plugins/Axes
+      Name: Sensor axes
+      Enabled: true
+      Length: 0.5
+      Radius: 0.03
+    - Class: rviz_default_plugins/LaserScan
+      Name: GL5 scan
+      Enabled: true
+      Topic:
+        Value: /scan
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+      Size (Pixels): 3
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 40; 230; 170
+      Position Transformer: XYZ
+      Alpha: 1
+      Decay Time: 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: GL5 points
+      Enabled: true
+      Topic:
+        Value: /points
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+      Size (Pixels): 2
+      Style: Points
+      Color Transformer: Intensity
+      Channel Name: intensity
+      Autocompute Intensity Bounds: true
+      Position Transformer: XYZ
+      Alpha: 1
+      Decay Time: 0
+  Global Options:
+    Fixed Frame: laser
+    Background Color: 18; 24; 32
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/PublishPoint
+      Single click: false
+      Topic:
+        Value: /clicked_point
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 10
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Top view
+      Scale: 60
+      X: 1
+      Y: 0
+      Angle: 0
+      Target Frame: <Fixed Frame>
+Window Geometry:
+  Width: 1200
+  Height: 850
