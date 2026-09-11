@@ -4,6 +4,34 @@
 
 Ubuntu 22.04 / ROS 2 Humble에서 GL5 SDK를 빌드하고, UDP 데이터를 `/scan`과 `/points`로 발행합니다. 센서 IP·포트는 장치 설정에 맞춰야 합니다.
 
+## Docker 이미지 빌드
+
+Docker Desktop 또는 Docker Engine이 설치된 호스트에서는 Ubuntu 22.04와 ROS 2 Humble을 직접 설치하지 않고 이미지를 빌드할 수 있습니다. SDK 서브모듈을 포함해 저장소를 클론한 뒤 저장소 루트에서 실행합니다.
+
+```bash
+git clone --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+cd lidar_workshop
+docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
+```
+
+Apple Silicon에서는 `linux/arm64`를, 일반적인 Intel/AMD Linux와 Windows PC에서는 `linux/amd64`를 사용합니다.
+
+```bash
+docker build --platform linux/amd64 -t lidar-workshop:humble-amd64 .
+```
+
+빌드 결과를 확인하려면 다음을 실행합니다. 컨테이너 시작 시 ROS 2 Humble과 이 작업 공간의 `install/setup.bash`가 자동으로 적용됩니다.
+
+```bash
+docker run --rm --platform linux/arm64 lidar-workshop:humble-arm64 \
+  ros2 pkg prefix gl5_driver
+
+docker run --rm --platform linux/arm64 lidar-workshop:humble-arm64 \
+  file /opt/lidar_workshop/SOSLAB_SDK/_archive_/lib/libLidar_x64_release.so
+```
+
+현재 Apple Silicon의 `linux/arm64` 이미지에서 SDK, 단독 수신 도구와 `gl5_driver`의 소스 빌드를 확인했습니다. macOS·Windows에서 실물 Ethernet LiDAR의 UDP를 컨테이너로 전달하는 방법과 RViz GUI 실행 방법은 별도 검증이 필요합니다. `scripts/network.sh`는 호스트의 NetworkManager를 조작하므로 Docker Desktop 컨테이너 안에서 실행하지 않습니다.
+
 ## 1. 최초 환경 준비와 빌드
 
 Ubuntu 22.04에 ROS 2 Humble이 설치되어 있어야 합니다. `/opt/ros/humble/setup.bash`가 없는 PC는 ROS 설치를 먼저 완료하세요. 아래 설치 명령은 ROS 패키지 저장소가 이미 설정된 환경을 전제로 합니다.
