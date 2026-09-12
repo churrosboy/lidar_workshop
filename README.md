@@ -1,5 +1,7 @@
 # SOSLAB GL5 ROS 2 실습
 
+Windows Docker Desktop 환경은 [Windows 설정 및 실행 안내](windows/README.md)를 참고하세요. 센서의 고정 UDP 수신 포트를 Windows 중계로 연결하고 VcXsrv로 RViz를 표시합니다.
+
 이 저장소의 루트가 ROS 작업 공간입니다. 클론한 디렉토리에서 `bash scripts/build.sh`, `bash scripts/run.sh`를 실행합니다. `src/`는 ROS 패키지, `SOSLAB_SDK/`는 제조사 SDK, `tools/`는 단독 수신·검증 도구, `config/`는 저장된 감지 영역입니다. 빌드 결과는 `build/`, `install/`, `log/`에 생성되고 검증 기록은 `artifacts/`에 저장됩니다.
 
 Ubuntu 22.04 / ROS 2 Humble에서 GL5 SDK를 빌드하고, UDP 데이터를 `/scan`과 `/points`로 발행합니다. 센서 IP·포트는 장치 설정에 맞춰야 합니다.

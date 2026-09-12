@@ -10,3 +10,50 @@ __pycache__/
 
 # Local detection region
 /config/gl5_region.json
+
+# Generated directories at any depth
+build/
+install/
+log/
+logs/
+artifacts/
+_archive_/
+.tools/
+.local/
+.venv/
+venv/
+.pytest_cache/
+.cache/
+
+# Local Windows settings, credentials and process state
+/windows/settings.json
+*.Xauthority
+.Xauthority
+*.xauth
+*.pid
+*.log
+.env
+.env.*
+!.env.example
+
+# Installers, archives, compiled outputs and sensor recordings
+*.exe
+*.msi
+*.dll
+*.so
+*.so.*
+*.a
+*.lib
+*.o
+*.obj
+*.pdb
+*.zip
+*.7z
+*.tar
+*.tar.*
+*.tgz
+*.bag
+*.db3
+*.mcap
+*.pcap
+*.pcapng

@@ -7,4 +7,8 @@ export GL5_OBSTACLE_PARAMS_FILE="${GL5_OBSTACLE_PARAMS_FILE:-$LAB_ROOT/src/gl5_d
 mkdir -p "$ROS_LOG_DIR"
 source /opt/ros/humble/setup.bash
 source "$LAB_ROOT/install/setup.bash"
-exec ros2 launch gl5_driver gl5.launch.py "$@"
+params_args=()
+if [[ -n "${GL5_PARAMS_FILE:-}" ]]; then
+  params_args+=("params_file:=$GL5_PARAMS_FILE")
+fi
+exec ros2 launch gl5_driver gl5.launch.py "${params_args[@]}" "$@"

@@ -7,3 +7,14 @@ SOSLAB_SDK/build
 SOSLAB_SDK/_archive_
 **/__pycache__
 *.pyc
+**/.local
+**/.tools
+**/logs
+**/*.Xauthority
+**/*.log
+**/*.pid
+windows/settings.json
+**/*.exe
+**/*.msi
+**/*.zip
+**/*.tar
