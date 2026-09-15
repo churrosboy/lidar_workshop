@@ -174,18 +174,18 @@ bash scripts/test_hardware.sh
 bash scripts/run.sh obstacle_params_file:=/절대경로/obstacles.yaml
 ```
 
-조정은 `cluster_gap`과 `min_points`부터 시작하세요. 현재 YAML의 `cluster_gap`은 `0.30` m입니다. 한 물체가 여러 박스로 쪼개지면 조금씩 늘려 비교하고, 작은 잡음을 줄이려면 `min_points`를 `5 → 8`로 올려 비교합니다. 무효점이나 영역 밖 점은 거리 설정과 관계없이 군집을 끊습니다. 가까운 사람과 상자가 합쳐질 수 있으므로 한 번에 하나의 값만 바꾸세요. 현재 글자 크기는 `label_height: 0.14`입니다.
+조정은 `cluster_gap`과 `min_points`부터 시작하세요. 현재 YAML의 `cluster_gap`은 `0.30` m입니다. 한 물체가 여러 박스로 쪼개지면 조금씩 늘려 비교하고, 작은 잡음을 줄이려면 `min_points`를 `5 → 8`로 올려 비교합니다. 무효점은 건너뛰고 스캔 순서상 앞뒤 유효점 사이 거리로 군집을 나눕니다. `min_points`에는 유효점만 셉니다. 영역 밖 점은 거리 설정과 관계없이 군집을 끊습니다. 가까운 사람과 상자가 합쳐질 수 있으므로 한 번에 하나의 값만 바꾸세요. 현재 글자 크기는 `label_height: 0.14`입니다.
 
 이하 기본 실행에는 같은 YAML이 사용됩니다. 단독 `ros2 run gl5_driver gl5_obstacle_node.py` 실행 시에는 `--ros-args --params-file /절대경로/obstacles.yaml`을 붙여야 파일을 읽습니다.
 
 `bash scripts/run.sh`는 GL5 드라이버, 장애물 노드, RViz를 함께 실행합니다. 기존에 실행 중인 드라이버가 있으면 먼저 종료하세요. 저장된 영역이 있으면 자동으로 적용합니다. 저장 파일이 없으면 영역을 지정할 때까지 장애물 판정을 하지 않습니다.
 
-**RViz 왼쪽 고정 패널:** `GL5 Region Controls`에서 `영역 지정`을 누르면 점 선택 도구가 활성화됩니다. 꼭짓점을 클릭한 뒤 `영역 확정`을 누르세요. `영역 전체 삭제`는 편집 점·적용 영역·저장 영역을 모두 지웁니다. `마지막 점 취소`, `편집 취소`, `저장 영역 불러오기`도 같은 패널에 있습니다. 상태와 오류 이유도 패널에 표시되어 스캔을 가리지 않습니다. 확대·축소는 `카메라 조작 (확대·축소)` 버튼을 누른 뒤 휠을 사용하거나 `Views → Scale`을 조절합니다. 패널이 닫혔다면 `Panels → Add New Panel → gl5_driver/RegionPanel`로 다시 추가합니다. 이 플러그인을 사용하려면 `bash scripts/run.sh` 또는 workspace의 `install/setup.bash`를 source한 터미널에서 RViz를 실행하세요.
+**RViz 왼쪽 고정 패널:** `GL5 Region Controls`에서 `Draw Region`을 누르면 점 선택 도구가 활성화됩니다. 꼭짓점을 클릭한 뒤 `Finish Region`을 누르세요. `Clear Region`은 편집 점·적용 영역·저장 영역을 모두 지웁니다. `Undo Last Point`, `Cancel Edit`, `Load Saved Region`도 같은 패널에 있습니다. 상태와 오류 이유도 패널에 표시되어 스캔을 가리지 않습니다. 확대·축소는 `Move Camera (Zoom)` 버튼을 누른 뒤 휠을 사용하거나 `Views → Scale`을 조절합니다. 패널이 닫혔다면 `Panels → Add New Panel → gl5_driver/RegionPanel`로 다시 추가합니다. 이 플러그인을 사용하려면 `bash scripts/run.sh` 또는 workspace의 `install/setup.bash`를 source한 터미널에서 RViz를 실행하세요.
 
-장애물 박스는 영역이 확정된 뒤에만 표시됩니다. 편집 중 상태가 계속 보이면 첫 점 근처를 클릭하거나 패널의 `영역 확정`을 누르세요. 변이 서로 교차하면 확정이 거부되므로 전체 삭제 후 겹치지 않는 사각형 4점으로 시작하는 것을 권합니다.
+장애물 박스는 영역이 확정된 뒤에만 표시됩니다. 편집 중 상태가 계속 보이면 첫 점 근처를 클릭하거나 패널의 `Finish Region`을 누르세요. 변이 서로 교차하면 확정이 거부되므로 전체 삭제 후 겹치지 않는 사각형 4점으로 시작하는 것을 권합니다.
 
 1. RViz의 Fixed Frame을 `laser`로 유지하고 `Detection region and obstacles` 표시를 켭니다.
-2. 패널의 **영역 지정**을 눌러 Publish Point 도구로 전환합니다. 스캔 점이 없는 곳도 선택할 수 있도록 평면이 표시됩니다.
+2. 패널의 **Draw Region**을 눌러 Publish Point 도구로 전환합니다. 스캔 점이 없는 곳도 선택할 수 있도록 평면이 표시됩니다.
 3. 감지할 구역의 둘레를 따라 꼭짓점을 3개 이상 클릭합니다. 시계·반시계 방향 모두 가능하며 오목한 다각형도 가능합니다.
 4. 첫 꼭짓점에서 15 cm 이내를 다시 클릭하면 영역이 닫히고 저장됩니다. 또는 `bash scripts/region.sh finish`를 실행합니다. 아주 작은 영역은 마지막 꼭짓점이 첫 점에 가까울 수 있으므로 큰 영역부터 연습하세요.
 5. 영역 안에 물체를 넣으면 감지 점과 축에 나란한 직사각형 박스가 나타납니다. 0.2초간 감지가 이어지면 `OCCUPIED`, 0.5초간 사라지면 `CLEAR`가 됩니다. 박스는 관측된 점의 범위이며 물체의 전체 크기가 아닙니다.
