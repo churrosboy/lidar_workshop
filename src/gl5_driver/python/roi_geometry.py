@@ -58,7 +58,7 @@ def inside(point, polygon):
 
 def clusters(ranges, angle_min, angle_increment, range_min, range_max, polygon,
              min_points=5, max_gap=0.15):
-    """Consecutive in-ROI beams form a cluster; missing/outside beams break it."""
+    """Cluster nearby in-ROI returns, skipping invalid beams; outside beams break it."""
     groups, current = [], []
     def flush():
         if len(current) >= min_points:
@@ -66,7 +66,6 @@ def clusters(ranges, angle_min, angle_increment, range_min, range_max, polygon,
         current.clear()
     for i, distance in enumerate(ranges):
         if not math.isfinite(distance) or distance <= 0 or not range_min <= distance <= range_max:
-            flush()
             continue
         angle = angle_min + i * angle_increment
         point = (distance * math.cos(angle), distance * math.sin(angle))

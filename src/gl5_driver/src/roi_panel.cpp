@@ -20,26 +20,26 @@ class RegionPanel : public rviz_common::Panel {
  public:
   explicit RegionPanel(QWidget* parent = nullptr) : Panel(parent) {
     auto* layout = new QVBoxLayout(this);
-    status_ = new QLabel("상태: 감지 노드 연결 대기", this);
+    status_ = new QLabel("Status: Waiting for detector", this);
     status_->setObjectName("roi_status");
     status_->setWordWrap(true);
     status_->setStyleSheet("font-weight: bold; padding: 5px;");
     layout->addWidget(status_);
-    auto* help = new QLabel("영역 지정 → 화면에 꼭짓점 클릭 → 영역 확정\n확대·축소: 카메라 조작 버튼을 누른 뒤 휠", this);
+    auto* help = new QLabel("Draw Region: click vertices, then Finish Region.\nZoom: select Move Camera, then scroll.", this);
     help->setWordWrap(true);
     layout->addWidget(help);
     auto* grid = new QGridLayout();
-    addButton(grid, "영역 지정", "edit", 0, 0);
-    addButton(grid, "영역 확정", "finish", 0, 1);
-    addButton(grid, "마지막 점 취소", "undo", 1, 0);
-    addButton(grid, "편집 취소", "cancel", 1, 1);
-    addButton(grid, "영역 전체 삭제", "clear", 2, 0);
-    addButton(grid, "저장 영역 불러오기", "load", 2, 1);
+    addButton(grid, "Draw Region", "edit", 0, 0);
+    addButton(grid, "Finish Region", "finish", 0, 1);
+    addButton(grid, "Undo Last Point", "undo", 1, 0);
+    addButton(grid, "Cancel Edit", "cancel", 1, 1);
+    addButton(grid, "Clear Region", "clear", 2, 0);
+    addButton(grid, "Load Saved Region", "load", 2, 1);
     layout->addLayout(grid);
-    auto* camera = new QPushButton("카메라 조작 (확대·축소)", this);
+    auto* camera = new QPushButton("Move Camera (Zoom)", this);
     connect(camera, &QPushButton::clicked, this, [this]() { chooseTool("rviz_default_plugins/MoveCamera"); });
     layout->addWidget(camera);
-    message_ = new QLabel("영역을 지정하면 해당 구역의 장애물만 표시합니다.", this);
+    message_ = new QLabel("Draw a region to show obstacles inside it.", this);
     message_->setObjectName("roi_message");
     message_->setWordWrap(true);
     message_->setMinimumHeight(42);
@@ -60,11 +60,11 @@ class RegionPanel : public rviz_common::Panel {
       [this](std_msgs::msg::String::ConstSharedPtr msg) {
         last_state_ = std::chrono::steady_clock::now();
         const std::map<std::string, QString> labels{
-          {"NO_REGION", "영역 없음"}, {"EDITING", "영역 편집 중 — 확정 버튼을 눌러주세요"},
-          {"NO_DATA", "라이다 데이터 없음"}, {"CLEAR", "영역 내 장애물 없음"},
-          {"OCCUPIED", "영역 내 장애물 감지"}};
+          {"NO_REGION", "No region"}, {"EDITING", "Editing region - click Finish Region"},
+          {"NO_DATA", "No LiDAR data"}, {"CLEAR", "No obstacles in region"},
+          {"OCCUPIED", "Obstacle detected in region"}};
         auto it = labels.find(msg->data);
-        status_->setText("상태: " + (it == labels.end() ? QString::fromStdString(msg->data) : it->second));
+        status_->setText("Status: " + (it == labels.end() ? QString::fromStdString(msg->data) : it->second));
         status_->setStyleSheet(msg->data == "OCCUPIED" ?
           "font-weight: bold; color: #bb2222; padding: 5px;" : "font-weight: bold; padding: 5px;");
       });
@@ -99,25 +99,25 @@ class RegionPanel : public rviz_common::Panel {
   void request(const std::string& action) {
     auto found = clients_.find(action);
     if (found == clients_.end() || !found->second->service_is_ready()) {
-      message_->setText("감지 노드에 연결되지 않았습니다. 실행 상태를 확인하세요."); return;
+      message_->setText("Detector not connected. Check that it is running."); return;
     }
     pending_ = true;
     active_client_ = found->second;
     deadline_ = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (auto& entry : buttons_) entry.second->setEnabled(false);
-    message_->setText("처리 중…");
+    message_->setText("Processing...");
     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
     auto result = active_client_->async_send_request(request, [this, action](Client::SharedFuture future) {
       pending_ = false;
       const auto response = future.get();
       if (response->success) {
-        message_->setText(action == "clear" ? "영역과 저장된 영역을 모두 삭제했습니다." :
-          action == "edit" ? "화면에 꼭짓점을 순서대로 찍고 영역 확정을 누르세요." :
-          action == "finish" ? "영역을 확정하고 저장했습니다." : "완료했습니다.");
+        message_->setText(action == "clear" ? "Current and saved regions cleared." :
+          action == "edit" ? "Click vertices in order, then click Finish Region." :
+          action == "finish" ? "Region confirmed and saved." : "Done.");
         if (action == "edit") chooseTool("rviz_default_plugins/PublishPoint");
         else if (action != "undo") chooseTool("rviz_default_plugins/Interact");
       } else {
-        message_->setText("실패: " + QString::fromStdString(response->message));
+        message_->setText("Failed: " + QString::fromStdString(response->message));
       }
       for (auto& entry : buttons_) entry.second->setEnabled(true);
     });
@@ -128,11 +128,11 @@ class RegionPanel : public rviz_common::Panel {
     executor_.spin_some(std::chrono::milliseconds(5));
     const auto now = std::chrono::steady_clock::now();
     if (last_state_.time_since_epoch().count() == 0 || now - last_state_ > std::chrono::seconds(2))
-      status_->setText("상태: 감지 노드 연결 대기");
+      status_->setText("Status: Waiting for detector");
     if (pending_ && now > deadline_) {
       active_client_->remove_pending_request(request_id_);
       pending_ = false;
-      message_->setText("응답 시간 초과. 현재 영역 상태를 확인하세요.");
+      message_->setText("Request timed out. Check the current region status.");
       for (auto& entry : buttons_) entry.second->setEnabled(true);
     }
   }

@@ -37,6 +37,27 @@ class PolygonTest(unittest.TestCase):
         poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
         self.assertEqual(len(clusters([1.0]*5 + [2.0]*5, 0, 0.001, 0, 60, poly)), 2)
 
+    def test_invalid_returns_are_skipped(self):
+        poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
+        invalid = [math.inf, math.nan, -math.inf, 0.0, -1.0, 0.05, 61.0]
+        groups = clusters([1.0]*3 + invalid + [1.0]*2,
+                          0, 0.001, 0.1, 60, poly, max_gap=0.30)
+        self.assertEqual([len(g) for g in groups], [5])
+        self.assertEqual(clusters([1.0]*2 + invalid + [1.0]*2,
+                                  0, 0.001, 0.1, 60, poly, max_gap=0.30), [])
+
+    def test_gap_across_invalid_returns_still_breaks_cluster(self):
+        poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
+        groups = clusters([1.0]*5 + [math.inf]*3 + [2.0]*5,
+                          0, 0.001, 0, 60, poly, max_gap=0.30)
+        self.assertEqual([len(g) for g in groups], [5, 5])
+
+    def test_outside_return_still_breaks_cluster(self):
+        poly = validate_polygon([(-2,-2),(2,-2),(2,2),(-2,2)])
+        groups = clusters([1.0]*5 + [3.0] + [1.0]*5,
+                          0, 0.001, 0, 60, poly, max_gap=0.30)
+        self.assertEqual([len(g) for g in groups], [5, 5])
+
     def test_box_is_not_a_square(self):
         self.assertEqual(bounds([(1,0),(2,0.1),(1.5,0.3)]), (1,0,2,0.3))
 
