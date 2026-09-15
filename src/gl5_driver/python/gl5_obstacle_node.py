@@ -78,11 +78,11 @@ class ObstacleNode(Node):
         self.menu_server = InteractiveMarkerServer(self, '/gl5/region_menu')
         self.menu_handler = MenuHandler()
         for title, action in (
-                ('영역 전체 삭제 / Clear region', self.clear),
-                ('영역 확정 / Finish', self.finish),
-                ('새 영역 그리기 / Edit', self.edit),
-                ('마지막 점 취소 / Undo', self.undo),
-                ('편집 취소 / Cancel', self.cancel)):
+                ('Clear Region', self.clear),
+                ('Finish Region', self.finish),
+                ('Draw Region', self.edit),
+                ('Undo Last Point', self.undo),
+                ('Cancel Edit', self.cancel)):
             self.menu_handler.insert(title, callback=self.menu_action(action))
         menu = InteractiveMarker()
         menu.header.frame_id = self.frame
