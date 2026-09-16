@@ -1,3 +1,10 @@
+# Publish only the root README; keep other Markdown documents local
+*.[mM][dD]
+!/README.md
+
+# Local-only diagnostic tools
+/tools/
+
 # Build outputs and runtime logs
 /build/
 /install/
@@ -10,3 +17,49 @@ __pycache__/
 
 # Local detection region
 /config/gl5_region.json
+
+# Generated directories at any depth
+build/
+install/
+log/
+logs/
+artifacts/
+_archive_/
+.tools/
+.local/
+.venv/
+venv/
+.pytest_cache/
+.cache/
+
+# Local credentials and process state
+*.Xauthority
+.Xauthority
+*.xauth
+*.pid
+*.log
+.env
+.env.*
+!.env.example
+
+# Installers, archives, compiled outputs and sensor recordings
+*.exe
+*.msi
+*.dll
+*.so
+*.so.*
+*.a
+*.lib
+*.o
+*.obj
+*.pdb
+*.zip
+*.7z
+*.tar
+*.tar.*
+*.tgz
+*.bag
+*.db3
+*.mcap
+*.pcap
+*.pcapng

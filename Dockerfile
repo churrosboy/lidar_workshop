@@ -11,10 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-matplotlib \
     python3-yaml \
+    python3-pytest \
     qtbase5-dev \
     ros-humble-ament-cmake-gtest \
     ros-humble-interactive-markers \
     ros-humble-rviz2 \
+    x11vnc \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/lidar_workshop

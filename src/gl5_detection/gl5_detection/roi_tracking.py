@@ -1,7 +1,7 @@
 """Short-term association of observed boxes; velocities are relative to the sensor."""
 import math
 from collections import deque
-from roi_geometry import bounds
+from gl5_detection.roi_geometry import bounds
 
 
 class BoxTracker:

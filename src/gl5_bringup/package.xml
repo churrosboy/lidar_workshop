@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>gl5_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and RViz configuration for the GL5 workshop</description>
+  <maintainer email="dhkim@example.com">dhkim</maintainer>
+  <license>BSD-3-Clause</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>gl5_driver</exec_depend>
+  <exec_depend>gl5_detection</exec_depend>
+  <exec_depend>gl5_rviz_plugins</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -43,9 +43,12 @@ class Gl5Node : public rclcpp::Node {
       params_.lidarPort, params_.pcIP.c_str(), params_.pcPort);
     if (!lidar_->connectLidar()) { RCLCPP_ERROR(get_logger(), "SDK connection failed"); return false; }
     connected_ = true;
-    last_frame_ns_ = steady_ns();
     if (!lidar_->streamStart()) { RCLCPP_ERROR(get_logger(), "GL5 stream command not acknowledged"); return false; }
     RCLCPP_INFO(get_logger(), "Stream acknowledged; waiting for frames. Timestamps use PC receive time.");
+    // Seed after streamStart, not before: it blocks up to the SDK's 5 s ack
+    // timeout, which is the whole watchdog budget. A slow ack would otherwise
+    // leave the timer already expired on a healthy sensor.
+    last_frame_ns_ = steady_ns();
     watchdog_ = create_wall_timer(std::chrono::seconds(1), [this]() {
       if (steady_ns() - last_frame_ns_.load() > 5'000'000'000LL) {
         RCLCPP_ERROR(get_logger(), "No valid GL5 frames for 5 seconds; terminating");

@@ -1,0 +1,101 @@
+diff --git a/soslab_api/internal/Netlink/include/Netlink.h b/soslab_api/internal/Netlink/include/Netlink.h
+index 12fbf5d..0760270 100644
+--- a/soslab_api/internal/Netlink/include/Netlink.h
++++ b/soslab_api/internal/Netlink/include/Netlink.h
+@@ -139,6 +139,11 @@ namespace soslab
+ 	private:
+ 		void asycReceiver(const std::error_code& errorCode, std::size_t bytesReceived);
+ 		std::unique_ptr<asio::ip::udp::socket> udpSocket;
++		asio::ip::udp::endpoint remoteEndpoint;
++		asio::ip::udp::endpoint senderEndpoint;
++		// False once the socket had to fall back to 0.0.0.0, where a NAT rewrites
++		// the source address and the sender can no longer be compared.
++		bool strictSource = true;
+ 	};
+ 
+ 	class SerialNetlink : public Netlink
+diff --git a/soslab_api/internal/Netlink/src/Netlink.cpp b/soslab_api/internal/Netlink/src/Netlink.cpp
+index 7af215a..3b8d2c5 100644
+--- a/soslab_api/internal/Netlink/src/Netlink.cpp
++++ b/soslab_api/internal/Netlink/src/Netlink.cpp
+@@ -295,6 +295,8 @@ bool soslab::UDPNetlink::connectImpl(asio::io_context& ioContext_, PortBase& por
+ 	try
+ 	{
+ 		udpSocket->open(asio::ip::udp::v4());
++		remoteEndpoint = serverEndpoint;
++		strictSource = true;
+ 
+ 		try
+ 		{
+@@ -317,11 +319,9 @@ bool soslab::UDPNetlink::connectImpl(asio::io_context& ioContext_, PortBase& por
+ 			std::cerr << "UDP :: Bind " << localEndpoint << " failed :: " << bindError.what()
+ 				<< " :: retrying on 0.0.0.0:" << udpInfo.pcPort << std::endl;
+ 			udpSocket->bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), static_cast<unsigned short>(udpInfo.pcPort)));
++			strictSource = false;
+ 		}
+ 
+-		// IF UDP Send is required, connect() is more effective
+-		udpSocket->connect(serverEndpoint);
+-
+ 		std::cout << "UDP :: Connected :: " << udpSocket->local_endpoint() << std::endl;
+ 
+ 		if (!receiveMessage())
+@@ -364,7 +364,7 @@ bool soslab::UDPNetlink::sendMessage(const std::vector<uint8_t>& msg)
+ 	{
+ 		if (udpSocket != nullptr && udpSocket->is_open())
+ 		{
+-			std::size_t bytesSent = udpSocket->send(asio::buffer(msg));
++			std::size_t bytesSent = udpSocket->send_to(asio::buffer(msg), remoteEndpoint);
+ 			if (bytesSent > 0)
+ 			{
+ 				retval = true;
+@@ -373,7 +373,7 @@ bool soslab::UDPNetlink::sendMessage(const std::vector<uint8_t>& msg)
+ 	}
+ 	catch (std::exception& errorMsg)
+ 	{
+-		std::cerr << "TCP :: Send Fail :: " << errorMsg.what() << std::endl;
++		std::cerr << "UDP :: Send Fail :: " << errorMsg.what() << std::endl;
+ 	}
+ 	return retval;
+ }
+@@ -382,18 +382,22 @@ void soslab::UDPNetlink::asycReceiver(const std::error_code& errorCode, std::siz
+ {
+ 	if (!errorCode && bytesReceived > 0)
+ 	{
+-		std::vector<uint8_t> packet(buffer.begin(), buffer.begin() + bytesReceived);
+-
+-		if (packetBuffer != nullptr)
++		// Replaces the filtering that connect() used to leave to the kernel.
++		if (!strictSource || senderEndpoint == remoteEndpoint)
+ 		{
+-			packetBuffer->push(packet);
+-		}
+-		else
+-		{
+-			receivedPacket(packet);
++			std::vector<uint8_t> packet(buffer.begin(), buffer.begin() + bytesReceived);
++
++			if (packetBuffer != nullptr)
++			{
++				packetBuffer->push(packet);
++			}
++			else
++			{
++				receivedPacket(packet);
++			}
+ 		}
+ 
+-		udpSocket->async_receive(asio::buffer(buffer), std::bind(&UDPNetlink::asycReceiver, this, std::placeholders::_1, std::placeholders::_2));
++		udpSocket->async_receive_from(asio::buffer(buffer), senderEndpoint, std::bind(&UDPNetlink::asycReceiver, this, std::placeholders::_1, std::placeholders::_2));
+ 	}
+ 	else if (errorCode.value() != asio::error::operation_aborted)
+ 	{
+@@ -409,7 +413,7 @@ bool soslab::UDPNetlink::receiveMessage()
+ 	{
+ 		try
+ 		{
+-			udpSocket->async_receive(asio::buffer(buffer),
++			udpSocket->async_receive_from(asio::buffer(buffer), senderEndpoint,
+ 				std::bind(&UDPNetlink::asycReceiver, this, std::placeholders::_1, std::placeholders::_2));
+ 			retval = true;
+ 		}

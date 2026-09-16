@@ -1,14 +1,16 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>gl5_driver</name>
+  <name>gl5_rviz_plugins</name>
   <version>0.1.0</version>
-  <description>SOSLAB GL5 sensor communication and scan conversion</description>
+  <description>RViz controls for GL5 detection regions</description>
   <maintainer email="dhkim@example.com">dhkim</maintainer>
   <license>BSD-3-Clause</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
-  <depend>sensor_msgs</depend>
-  <depend>builtin_interfaces</depend>
-  <test_depend>ament_cmake_gtest</test_depend>
+  <depend>rviz_common</depend>
+  <depend>pluginlib</depend>
+  <depend>std_srvs</depend>
+  <depend>std_msgs</depend>
+  <depend>qtbase5-dev</depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>
