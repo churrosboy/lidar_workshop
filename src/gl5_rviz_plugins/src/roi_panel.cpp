@@ -15,7 +15,7 @@
 #include <map>
 #include <vector>
 
-namespace gl5_driver {
+namespace gl5_rviz_plugins {
 class RegionPanel : public rviz_common::Panel {
  public:
   explicit RegionPanel(QWidget* parent = nullptr) : Panel(parent) {
@@ -150,4 +150,4 @@ class RegionPanel : public rviz_common::Panel {
 };
 }
 
-PLUGINLIB_EXPORT_CLASS(gl5_driver::RegionPanel, rviz_common::Panel)
+PLUGINLIB_EXPORT_CLASS(gl5_rviz_plugins::RegionPanel, rviz_common::Panel)

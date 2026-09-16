@@ -2,8 +2,8 @@ import math
 import sys
 import unittest
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
-from roi_geometry import validate_polygon, inside, clusters, bounds, Occupancy
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from gl5_detection.roi_geometry import validate_polygon, inside, clusters, bounds, Occupancy
 
 
 class PolygonTest(unittest.TestCase):

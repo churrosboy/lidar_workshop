@@ -19,8 +19,8 @@ from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray, InteractiveMarker, InteractiveMarkerControl
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from interactive_markers.menu_handler import MenuHandler
-from roi_geometry import validate_polygon, clusters, bounds, Occupancy
-from roi_tracking import BoxTracker
+from gl5_detection.roi_geometry import validate_polygon, clusters, bounds, Occupancy
+from gl5_detection.roi_tracking import BoxTracker
 
 
 class ObstacleNode(Node):

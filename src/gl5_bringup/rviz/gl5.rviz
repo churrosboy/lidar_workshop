@@ -1,5 +1,5 @@
 Panels:
-  - Class: gl5_driver/RegionPanel
+  - Class: gl5_rviz_plugins/RegionPanel
     Name: GL5 Region Controls
   - Class: rviz_common/Displays
     Name: Displays

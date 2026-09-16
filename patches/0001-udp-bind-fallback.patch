@@ -1,0 +1,42 @@
+diff --git a/soslab_api/internal/Netlink/src/Netlink.cpp b/soslab_api/internal/Netlink/src/Netlink.cpp
+index b9effba..7af215a 100644
+--- a/soslab_api/internal/Netlink/src/Netlink.cpp
++++ b/soslab_api/internal/Netlink/src/Netlink.cpp
+@@ -1,4 +1,6 @@
+ #include "Netlink.h"
++#include <cerrno>
++#include <system_error>
+ #include <thread>
+ 
+ namespace soslab
+@@ -293,7 +295,29 @@ bool soslab::UDPNetlink::connectImpl(asio::io_context& ioContext_, PortBase& por
+ 	try
+ 	{
+ 		udpSocket->open(asio::ip::udp::v4());
+-		udpSocket->bind(localEndpoint);
++
++		try
++		{
++			udpSocket->bind(localEndpoint);
++		}
++		catch (const std::system_error& bindError)
++		{
++			// Standalone asio reports socket errors in its own "asio.system"
++			// category. Its values are errno numbers, but the category does not map
++			// onto std::errc, so compare the errno. The std::errc form is kept for a
++			// build that uses boost.asio, where the mapping does exist.
++			const std::error_code& bindCode = bindError.code();
++			if (bindCode.value() != EADDRNOTAVAIL && bindCode != std::errc::address_not_available)
++			{
++				throw;
++			}
++
++			// The configured PC address is on no local interface, which is what a
++			// container looks like. Bind every address on the same port instead.
++			std::cerr << "UDP :: Bind " << localEndpoint << " failed :: " << bindError.what()
++				<< " :: retrying on 0.0.0.0:" << udpInfo.pcPort << std::endl;
++			udpSocket->bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), static_cast<unsigned short>(udpInfo.pcPort)));
++		}
+ 
+ 		// IF UDP Send is required, connect() is more effective
+ 		udpSocket->connect(serverEndpoint);
