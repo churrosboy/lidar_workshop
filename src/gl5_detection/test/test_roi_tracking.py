@@ -1,8 +1,8 @@
 import sys
 import unittest
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
-from roi_tracking import BoxTracker
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from gl5_detection.roi_tracking import BoxTracker
 
 
 def box(x,y=0):
