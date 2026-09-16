@@ -38,7 +38,7 @@ docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 **터미널 1**에서 어댑터 이름을 찾고 주소를 지정합니다.
 
 - `$IFACE`라는 네트워크 어댑터에 `10.110.1.3/24`라는 IP 주소를 설정합니다.
-- Mac 사용자 계정의 관리자 비밀번호를 입력합니다.
+- $\color{yellow}{\textsf{Mac 사용자 계정의 관리자 비밀번호를 입력}}$합니다.
 
 ```bash
 cd ~/lidar_workshop
@@ -76,7 +76,7 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    &nbsp;
 
 3. `command + T`로 터미널 창 3을 켜고, 아래 명령으로 RViz 화면에 접속합니다.
-   화면 공유 앱이 열리고 암호를 물으면 `gl5lab`을 입력합니다.
+   화면 공유 앱이 열리고 $\color{yellow}{\textsf{암호를 물으면 gl5lab을 입력}}$합니다.
 
    ```bash
    open vnc://localhost:5901
