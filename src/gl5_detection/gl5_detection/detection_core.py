@@ -86,9 +86,19 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
             groups.append(current.copy())
         current.clear()
     for i, distance in enumerate(ranges):
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
         raise NotImplementedError('1단계 cluster_scan')
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
     flush()
     return groups
 
