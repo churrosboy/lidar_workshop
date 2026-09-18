@@ -3,6 +3,10 @@
 
 Read scan_callback() for the processing flow and publish_outputs() for ROS output.
 The calculations live in detection_core.py; storage and RViz helpers are below.
+
+The region is kept in the "anchor" frame: the sensor frame at the time the background
+map was learned. While the background is aligned, the region therefore stays put in
+the room when the sensor rotates or shifts; without a background it is the sensor frame.
 """
 from collections.abc import Callable
 import json
@@ -12,6 +16,7 @@ from pathlib import Path
 import tempfile
 import time
 
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
@@ -82,7 +87,7 @@ class ObstacleNode(Node):
             msg.range_min, msg.range_max, None, self.min_points, self.max_gap,
         )
         self.box_tracks = core.classify_tracks(
-            self.tracker.update(self.obstacle_clusters, now), self.region,
+            self.tracker.update(self.obstacle_clusters, now), self.to_laser(self.region),
             self.predict_horizon, self.predict_step, self.min_predict_speed,
         )
         self.occupancy_filter.update(any(track.in_region for track in self.box_tracks), now)
@@ -141,8 +146,21 @@ class ObstacleNode(Node):
         self.publish_detection_state()
         self.publish_region()
 
+    # Anchor (background map) frame <-> current sensor frame
+
+    def anchor_from_laser(self) -> np.ndarray:
+        if self.background is not None and self.background.ready:
+            return self.background.pose
+        return np.eye(3)
+
+    def to_laser(self, points: list[core.Point2D]) -> list[core.Point2D]:
+        return core.transform_points(np.linalg.inv(self.anchor_from_laser()), points)
+
+    def to_anchor(self, points: list[core.Point2D]) -> list[core.Point2D]:
+        return core.transform_points(self.anchor_from_laser(), points)
+
     def publish_obstacle_markers(self) -> None:
-        vertices = self.draft if self.editing else self.region
+        vertices = self.to_laser(self.draft if self.editing else self.region)
         background = []
         if self.background is not None and self.background.ready:
             background = self.background.contour()
@@ -159,7 +177,7 @@ class ObstacleNode(Node):
 
     def publish_region(self) -> None:
         self.region_pub.publish(make_region_polygon(
-            self.frame, self.get_clock().now().to_msg(), self.region
+            self.frame, self.get_clock().now().to_msg(), self.to_laser(self.region)
         ))
 
     # Parameters and ROS setup
@@ -261,6 +279,7 @@ class ObstacleNode(Node):
         point = (msg.point.x, msg.point.y)
         if not all(math.isfinite(x) for x in point):
             return
+        point = self.to_anchor([point])[0]
         if not self.editing:
             if self.region:
                 self.get_logger().info('Region locked. Use region edit to draw a new region.')
@@ -341,6 +360,9 @@ class ObstacleNode(Node):
     def learn_background(self):
         if self.background is None:
             raise ValueError('Background subtraction is disabled (background_enabled=false)')
+        # The new map frame is the current sensor frame: re-express the region in it.
+        self.region, self.draft = self.to_laser(self.region), self.to_laser(self.draft)
+        self.background.reset()
         self.background.start_learning()
         self.clear_detection_results()
         return (f'Learning background map from the next {self.background.learn_frames} scans; '

@@ -207,6 +207,36 @@ def load_or_update_fixture(name, actual):
     return json.loads(fixture.read_text())
 
 
+class RegionAnchorTest(unittest.TestCase):
+    """The region is stored in the background-map frame and follows the alignment."""
+
+    def test_region_and_clicks_follow_background_pose(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as directory:
+            node = DetectorHarness(Path(directory) / 'region.json')
+            yaw = math.pi / 2  # map <- laser: the sensor has turned 90 degrees
+            node.background = SimpleNamespace(
+                ready=True, learning=False, aligned=True, fitness=1.0,
+                pose=np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+                contour=lambda: [], foreground=lambda r, a, i: list(r),
+            )
+            node.region = [(1.0, -0.5), (2.0, -0.5), (2.0, 0.5), (1.0, 0.5)]
+            laser = node.to_laser(node.region)
+            for (x, y), (ex, ey) in zip(laser, [(-0.5, -1.0), (-0.5, -2.0), (0.5, -2.0), (0.5, -1.0)]):
+                self.assertAlmostEqual(x, ex); self.assertAlmostEqual(y, ey)
+            node.edit()
+            point = PointStamped(); point.header.frame_id = 'laser'
+            point.point.x, point.point.y = 0.0, -1.5  # clicked in the sensor frame
+            with patch('gl5_detection.gl5_obstacle_node.time.monotonic', return_value=0.0):
+                node.clicked_point_callback(point)
+            self.assertAlmostEqual(node.draft[0][0], 1.5); self.assertAlmostEqual(node.draft[0][1], 0.0)
+            node.cancel()
+            with patch('gl5_detection.gl5_obstacle_node.time.monotonic', return_value=1.0):
+                node.update_state_and_publish()
+            polygon = node.region_pub.message['polygon']['points']
+            self.assertAlmostEqual(polygon[0]['x'], -0.5); self.assertAlmostEqual(polygon[0]['y'], -1.0)
+
+
 class ObstacleBehaviorTest(unittest.TestCase):
     def test_interactive_menu_matches_original(self):
         fixture = Path(__file__).parent / 'fixtures' / 'region_menu.json'

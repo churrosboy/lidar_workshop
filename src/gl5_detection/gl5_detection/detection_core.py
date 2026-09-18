@@ -192,6 +192,14 @@ class BackgroundModel:
         return [(float(x), float(y)) for x, y in shown]
 
 
+def transform_points(transform, points) -> list[Point2D]:
+    """Apply a 3x3 homogeneous transform to a list of (x, y) points."""
+    if not points:
+        return []
+    moved = icp.apply(np.asarray(transform, dtype=float), np.asarray(points, dtype=float))
+    return [(float(x), float(y)) for x, y in moved]
+
+
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,
              min_points=5, max_gap=0.15) -> list[list[Point2D]]:
     """Cluster nearby returns, skipping invalid beams.
