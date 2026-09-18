@@ -14,15 +14,18 @@ BoundingBox = tuple[float, float, float, float]
 EPS = 1e-9
 
 
+# 벡터 ab와 ap의 외적 (부호로 좌우 판정)
 def cross(a: Point2D, b: Point2D, p: Point2D) -> float:
     return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
 
 
+# 점 p가 선분 ab 위에 있는지
 def on_segment(a: Point2D, b: Point2D, p: Point2D) -> bool:
     return abs(cross(a, b, p)) <= EPS and all(
         min(a[i], b[i]) - EPS <= p[i] <= max(a[i], b[i]) + EPS for i in (0, 1))
 
 
+# 선분 ab와 cd가 만나는지
 def intersects(a: Point2D, b: Point2D, c: Point2D, d: Point2D) -> bool:
     return (cross(a, b, c) * cross(a, b, d) < 0 and
             cross(c, d, a) * cross(c, d, b) < 0) or any((
@@ -30,6 +33,7 @@ def intersects(a: Point2D, b: Point2D, c: Point2D, d: Point2D) -> bool:
         on_segment(c, d, a), on_segment(c, d, b)))
 
 
+# 꼭짓점 개수, 유한성, 중복, 자기 교차, 면적을 검사해 폴리곤을 확정한다
 def validate_polygon(vertices) -> list[Point2D]:
     if not isinstance(vertices, (list, tuple)) or not 3 <= len(vertices) <= 100:
         raise ValueError('Use 3 to 100 vertices')
@@ -53,6 +57,7 @@ def validate_polygon(vertices) -> list[Point2D]:
     return [(float(p[0]), float(p[1])) for p in vertices]
 
 
+# 점이 폴리곤 안(경계 포함)에 있는지 (레이 캐스팅)
 def inside(point: Point2D, polygon: list[Point2D]) -> bool:
     result = False
     for a, b in zip(polygon, polygon[1:] + polygon[:1]):
@@ -65,7 +70,9 @@ def inside(point: Point2D, polygon: list[Point2D]) -> bool:
     return result
 
 
+# 배경을 점 지도로 학습하고, 매 스캔을 지도에 정렬해 지도 밖 점만 남긴다
 class BackgroundModel:
+    # 학습 프레임 수, 여유 거리, 정렬 허용치를 설정한다
     def __init__(self, learn_frames=80, margin=0.15, ratio=0.02, min_fitness=0.5,
                  max_step=0.15, max_turn=math.radians(15), stride=3):
         if learn_frames < 1 or not all(math.isfinite(v) and v >= 0 for v in (margin, ratio)):
@@ -84,13 +91,16 @@ class BackgroundModel:
         self.learning = False
 
     @property
+    # 배경 지도가 준비됐는지
     def ready(self) -> bool:
         return self.map_points is not None
 
+    # 학습 버퍼를 비우고 학습을 시작한다
     def start_learning(self) -> None:
         self.samples = []
         self.learning = True
 
+    # 지도, 포즈, 학습 상태를 초기화한다
     def reset(self) -> None:
         self.map_points = self.target = None
         self.pose = np.eye(3)
@@ -99,12 +109,14 @@ class BackgroundModel:
         self.learning = False
 
     @staticmethod
+    # 유효 빔의 (인덱스, xy 점) 배열
     def _points(ranges, angle_min, angle_increment):
         frame = np.asarray(ranges, dtype=float)
         index = np.nonzero(np.isfinite(frame) & (frame > 0))[0]
         angles = angle_min + index * angle_increment
         return index, np.column_stack((frame[index] * np.cos(angles), frame[index] * np.sin(angles)))
 
+    # 학습 중 스캔을 모으고, 다 모이면 빔별 중앙값으로 지도를 만든다
     def observe(self, ranges, angle_min, angle_increment) -> bool:
         if not self.learning:
             return False
@@ -129,6 +141,7 @@ class BackgroundModel:
         self.learning = False
         return True
 
+    # 스캔을 지도에 정렬한 뒤 지도에서 떨어진 점만 남기고 나머지는 inf로 만든다
     def foreground(self, ranges, angle_min, angle_increment) -> list[float]:
         if not self.ready:
             return list(ranges)
@@ -147,6 +160,7 @@ class BackgroundModel:
         out[index[keep]] = frame[index[keep]]
         return out.tolist()
 
+    # ICP로 현재 스캔의 포즈를 갱신하고, 실패하거나 튀면 이전 포즈를 유지한다
     def _align(self, points: np.ndarray) -> None:
         transform, fitness = icp.icp(points[::self.stride], self.target, self.pose)
         mx, my, myaw = icp.to_pose(np.linalg.inv(self.pose) @ transform)
@@ -157,6 +171,7 @@ class BackgroundModel:
             self.pose = transform
         self.aligned = ok
 
+    # 지도 점을 현재 센서 좌표계로 옮겨 시각화용으로 돌려준다
     def contour(self, stride=5) -> list[Point2D]:
         if not self.ready:
             return []
@@ -164,6 +179,7 @@ class BackgroundModel:
         return [(float(x), float(y)) for x, y in shown]
 
 
+# 3x3 변환을 (x, y) 목록에 적용한다
 def transform_points(transform, points) -> list[Point2D]:
     if not points:
         return []
@@ -171,9 +187,11 @@ def transform_points(transform, points) -> list[Point2D]:
     return [(float(x), float(y)) for x, y in moved]
 
 
+# 이웃 유효점을 묶어 군집을 만든다 (polygon이 None이면 전체 시야)
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,
              min_points=5, max_gap=0.15) -> list[list[Point2D]]:
     groups, current = [], []
+    # 현재 묶음이 최소 점 수를 넘으면 군집으로 확정한다
     def flush():
         if len(current) >= min_points:
             groups.append(current.copy())
@@ -193,21 +211,26 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
     return groups
 
 
+# 점들의 바운딩 박스 (x0, y0, x1, y1)
 def bounds(points: list[Point2D]) -> BoundingBox:
     return (min(p[0] for p in points), min(p[1] for p in points),
             max(p[0] for p in points), max(p[1] for p in points))
 
 
+# 감지/미감지가 일정 시간 지속돼야 점유 상태를 바꾸는 디바운스
 class Occupancy:
+    # 진입/이탈 지연 시간을 설정한다
     def __init__(self, enter=0.2, leave=0.5):
         self.enter, self.leave = enter, leave
         self.reset()
 
+    # 점유 상태와 후보를 초기화한다
     def reset(self):
         self.occupied = False
         self.candidate = None
         self.since = None
 
+    # 이번 프레임의 감지 여부로 점유 상태를 갱신한다
     def update(self, detected, now):
         if detected == self.occupied:
             self.candidate = self.since = None
@@ -226,6 +249,7 @@ MIN_SPEED_DURATION = 0.15
 
 
 @dataclass
+# 추적 중인 물체 하나 (박스, 속도, 궤적, 영역 관계)
 class Track:
     id: int
     center: Point2D
@@ -240,7 +264,9 @@ class Track:
     entry_point: Point2D | None = None
 
 
+# 군집 박스를 프레임 간에 연결하고 속도를 추정한다
 class BoxTracker:
+    # 연결 거리, 유지 시간, 속도 창, 궤적 길이를 설정한다
     def __init__(self, match_distance=0.4, max_age=0.5, window=0.4, trail_length=60):
         self.match_distance = match_distance
         self.max_age = max_age
@@ -249,9 +275,11 @@ class BoxTracker:
         self.next_id = 1
         self.tracks: dict[int, Track] = {}
 
+    # 모든 추적을 지운다
     def reset(self) -> None:
         self.tracks.clear()
 
+    # 군집을 기존 추적에 연결하거나 새 추적을 만들고 스냅샷을 돌려준다
     def update(self, groups: list[list[Point2D]], now: float) -> list[Track]:
         self._expire_tracks(now)
         boxes = [bounds(group) for group in groups]
@@ -279,12 +307,14 @@ class BoxTracker:
             visible.append(replace(track, trail=deque(track.trail, maxlen=self.trail_length)))
         return visible
 
+    # 오래 안 보인 추적을 제거한다
     def _expire_tracks(self, now: float) -> None:
         self.tracks = {
             key: track for key, track in self.tracks.items()
             if 0 <= now - track.last_seen <= self.max_age
         }
 
+    # 예측 위치와 가까운 군집을 추적에 1:1로 배정한다
     def _match_tracks(self, centers: list[Point2D], now: float) -> dict[int, int]:
         candidates = []
         for key, track in self.tracks.items():
@@ -305,6 +335,7 @@ class BoxTracker:
                 assignments[index] = key
         return assignments
 
+    # 최근 위치 이력에 직선을 맞춰 속도를 구한다
     def _update_speed(self, track: Track, center: Point2D, now: float) -> None:
         history = track.history
         if not history or now > history[-1][0]:
@@ -331,6 +362,7 @@ class BoxTracker:
         track.speed = math.hypot(*velocities)
 
 
+# 등속 직진 가정으로 폴리곤에 처음 들어가는 시각과 지점을 구한다
 def predict_entry(center: Point2D, velocity: Point2D, polygon: list[Point2D],
                   horizon=3.0, step=0.1, min_speed=0.1) -> tuple[float, Point2D] | None:
     if math.hypot(*velocity) < min_speed or inside(center, polygon):
@@ -344,6 +376,7 @@ def predict_entry(center: Point2D, velocity: Point2D, polygon: list[Point2D],
     return None
 
 
+# 각 추적에 영역 안 여부와 진입 예측을 채운다
 def classify_tracks(tracks: list[Track], polygon: list[Point2D],
                     horizon=3.0, step=0.1, min_speed=0.1) -> list[Track]:
     for track in tracks:

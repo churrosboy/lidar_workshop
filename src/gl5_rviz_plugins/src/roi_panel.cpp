@@ -17,14 +17,17 @@
 #include <string>
 
 namespace gl5_rviz_plugins {
+// 영역 편집 버튼과 감지 상태를 보여 주는 RViz 패널
 class RegionPanel : public rviz_common::Panel {
  public:
+  // 위젯을 만들고 ROS 스핀용 타이머를 준비한다
   explicit RegionPanel(QWidget* parent = nullptr) : Panel(parent) {
     createWidgets();
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, [this]() { tick(); });
   }
 
+  // 노드, 서비스 클라이언트, 상태 구독을 만들고 타이머를 켠다
   void onInitialize() override {
     node_ = std::make_shared<rclcpp::Node>("gl5_region_panel");
     executor_.add_node(node_);
@@ -38,6 +41,7 @@ class RegionPanel : public rviz_common::Panel {
     timer_->start(50);
   }
 
+  // 타이머를 멈추고 노드를 실행기에서 뺀다
   ~RegionPanel() override {
     timer_->stop();
     if (node_) {
@@ -48,6 +52,7 @@ class RegionPanel : public rviz_common::Panel {
  private:
   using Client = rclcpp::Client<std_srvs::srv::Trigger>;
 
+  // 상태 라벨, 도움말, 버튼 격자, 메시지 라벨을 배치한다
   void createWidgets() {
     auto* layout = new QVBoxLayout(this);
     status_ = new QLabel("Status: Waiting for detector", this);
@@ -82,6 +87,7 @@ class RegionPanel : public rviz_common::Panel {
     layout->addStretch();
   }
 
+  // 상태 문자열을 라벨과 색으로 바꿔 표시한다
   void updateStatus(const std::string& state) {
     last_state_ = std::chrono::steady_clock::now();
     const std::map<std::string, QString> labels{{"NO_REGION", "No region"},
@@ -99,6 +105,7 @@ class RegionPanel : public rviz_common::Panel {
                                                 : "font-weight: bold; padding: 5px;");
   }
 
+  // 서비스 응답을 메시지로 보여 주고 RViz 도구를 전환한다
   void handleResponse(const std::string& action,
                       const std_srvs::srv::Trigger::Response::SharedPtr& response) {
     pending_ = false;
@@ -115,6 +122,7 @@ class RegionPanel : public rviz_common::Panel {
     setButtonsEnabled(true);
   }
 
+  // 동작별 성공 메시지
   static QString successMessage(const std::string& action) {
     if (action == "clear") {
       return "Current and saved regions cleared.";
@@ -131,12 +139,14 @@ class RegionPanel : public rviz_common::Panel {
     return "Done.";
   }
 
+  // 모든 버튼을 켜거나 끈다
   void setButtonsEnabled(bool enabled) {
     for (auto& entry : buttons_) {
       entry.second->setEnabled(enabled);
     }
   }
 
+  // 버튼을 만들어 격자에 넣고 서비스 요청에 연결한다
   void addButton(QGridLayout* grid, const QString& text, const std::string& action, int row,
                  int column) {
     auto* button = new QPushButton(text, this);
@@ -145,6 +155,7 @@ class RegionPanel : public rviz_common::Panel {
     connect(button, &QPushButton::clicked, this, [this, action]() { request(action); });
     grid->addWidget(button, row, column);
   }
+  // RViz 도구(클릭/이동/상호작용)를 선택한다
   void chooseTool(const QString& id) {
     auto* context = getDisplayContext();
     if (!context) {
@@ -159,6 +170,7 @@ class RegionPanel : public rviz_common::Panel {
     }
     manager->setCurrentTool(manager->addTool(id));
   }
+  // 서비스를 비동기로 호출하고 응답을 기다리는 동안 버튼을 잠근다
   void request(const std::string& action) {
     auto found = clients_.find(action);
     if (found == clients_.end() || !found->second->service_is_ready()) {
@@ -176,6 +188,7 @@ class RegionPanel : public rviz_common::Panel {
         [this, action](Client::SharedFuture future) { handleResponse(action, future.get()); });
     request_id_ = result.request_id;
   }
+  // 50 ms마다 ROS를 스핀하고 상태 수신 끊김과 요청 시간 초과를 처리한다
   void tick() {
     if (!node_ || !rclcpp::ok()) {
       return;

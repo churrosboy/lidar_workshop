@@ -6,6 +6,7 @@
 
 namespace gl5_driver {
 
+// 프레임, 거리 범위, 각도 오프셋, 시야각 값이 유효한지 검사한다
 void validate_scan_config(const ScanConfig& config) {
   if (config.frame_id.empty() || !std::isfinite(config.range_min) ||
       !std::isfinite(config.range_max) || config.range_min < 0 ||
@@ -16,6 +17,7 @@ void validate_scan_config(const ScanConfig& config) {
   }
 }
 
+// SDK 프레임을 LaserScan으로 바꾼다 (mm→m, 시야각 기준 각도 계산)
 sensor_msgs::msg::LaserScan make_scan(const soslab::FrameData& frame, const ScanConfig& config,
                                       const builtin_interfaces::msg::Time& stamp,
                                       double scan_time) {
@@ -53,6 +55,7 @@ sensor_msgs::msg::LaserScan make_scan(const soslab::FrameData& frame, const Scan
   return scan;
 }
 
+// LaserScan을 xyz+intensity PointCloud2로 바꾼다
 sensor_msgs::msg::PointCloud2 make_cloud(const sensor_msgs::msg::LaserScan& scan) {
   sensor_msgs::msg::PointCloud2 cloud;
   cloud.header = scan.header;
