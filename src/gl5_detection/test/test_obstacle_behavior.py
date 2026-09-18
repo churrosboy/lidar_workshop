@@ -19,6 +19,7 @@ from gl5_detection.gl5_obstacle_node import (
     ObstacleNode, RegionVisualization, make_region_menu,
 )
 from gl5_detection.detection_core import BoxTracker, Occupancy
+from gl5_detection import prediction
 
 
 class Publisher:
@@ -44,6 +45,8 @@ class DetectorHarness(ObstacleNode):
         self.editing = False
         self.last_valid_scan_time = None
         self.background = None
+        self.prediction_enabled = True
+        self.prediction = prediction
         self.state = 'NO_REGION'
         self.menu_notice = ''
         self.visualization = RegionVisualization(
@@ -60,7 +63,8 @@ class DetectorHarness(ObstacleNode):
         return SimpleNamespace(now=lambda: SimpleNamespace(to_msg=lambda: Time(sec=123)))
 
     def get_logger(self):
-        return SimpleNamespace(info=lambda _: None, warning=lambda _: None)
+        return SimpleNamespace(info=lambda *a, **k: None, warning=lambda *a, **k: None,
+                               error=lambda *a, **k: None)
 
 
 def scan(ranges, frame='laser'):
