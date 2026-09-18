@@ -3,6 +3,8 @@ $base = $PSScriptRoot
 $settingsPath = Join-Path $base 'settings.json'
 if (-not (Test-Path $settingsPath)) { throw 'Copy settings.example.json to settings.json and set your executable paths first.' }
 $s = Get-Content $settingsPath -Raw | ConvertFrom-Json
+$lidarType = if ($s.lidar_type) { [string]$s.lidar_type } else { 'GL5' }
+if ($lidarType -notin @('GL5', 'GL3')) { throw "lidar_type must be GL5 or GL3: $lidarType" }
 foreach ($key in @('sensor_ip', 'pc_ip')) {
     if ([System.Net.IPAddress]::Parse($s.$key).AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) { throw 'IPv4 required.' }
 }
@@ -60,7 +62,7 @@ $hostLine = @(Invoke-Docker exec $s.container getent ahostsv4 host.docker.intern
 $hostIP = ($hostLine -split '\s+')[0]
 [void][System.Net.IPAddress]::Parse($hostIP)
 # Explicit floating-point YAML values are required by the ROS parameter types.
-$yaml = "gl5_node:`n  ros__parameters:`n    sensor_ip: '$hostIP'`n    sensor_port: $($s.relay_port)`n    pc_ip: '0.0.0.0'`n    pc_port: $($s.container_port)`n    frame_id: laser`n    range_min: 0.0`n    range_max: 60.0`n    angle_offset: 0.0`n"
+$yaml = "gl5_node:`n  ros__parameters:`n    lidar_type: '$lidarType'`n    sensor_ip: '$hostIP'`n    sensor_port: $($s.relay_port)`n    pc_ip: '0.0.0.0'`n    pc_port: $($s.container_port)`n    frame_id: laser`n    range_min: 0.0`n    range_max: 60.0`n    angle_offset: 0.0`n"
 [IO.File]::WriteAllText((Join-Path $runtime 'gl5.yaml'), $yaml, (New-Object Text.UTF8Encoding($false)))
 $relayRunning = $false
 $pidPath = Join-Path $runtime 'relay.pid'
