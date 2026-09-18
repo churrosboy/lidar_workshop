@@ -49,7 +49,6 @@ class DetectorHarness(ObstacleNode):
         self.region, self.draft, self.obstacle_clusters = [], [], []
         self.editing = False
         self.last_valid_scan_time = None
-        self.scan_geometry = None
         self.background = None  # golden fixture predates background subtraction
         self.state = 'NO_REGION'
         self.menu_notice = ''

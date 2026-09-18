@@ -1,6 +1,6 @@
 """Obstacle detection algorithms, independent of ROS, RViz and file storage.
 
-BackgroundModel: learn the free-space distance per beam and keep only closer returns.
+BackgroundModel: learn a background point map; returns off the map are foreground.
 cluster_scan(): turn laser ranges into clusters (inside a polygon, or the whole scan).
 BoxTracker: associate cluster boxes across scans, keep a trail and estimate speed.
 predict_entry()/classify_tracks(): extrapolate tracks and find when they enter the region.
@@ -12,6 +12,8 @@ import math
 import warnings
 
 import numpy as np
+
+from gl5_localization import icp
 
 
 # Geometry, scan clustering and occupancy
@@ -75,48 +77,64 @@ def inside(point: Point2D, polygon: list[Point2D]) -> bool:
 
 
 class BackgroundModel:
-    """Per-beam free-space distance learned from a burst of scans.
+    """Background as a point map; returns that are not on the map are foreground.
 
-    While learning, observe() accumulates frames; the per-beam median makes a person
-    walking through during learning harmless. Afterwards foreground() keeps only beams
-    that return clearly closer than the background (margin + ratio * distance).
-    A beam whose background is inf (no return, open space) is foreground whenever it
-    returns anything. If the beam count changes (different sensor), learning restarts.
+    Learning accumulates a burst of scans and takes the per-beam median (a person
+    walking through is ignored), then keeps the finite beams as map points in the
+    sensor frame at learning time. Afterwards every scan is aligned to that map with
+    ICP, so the sensor may rotate or shift a little without the walls turning into
+    obstacles. A return is foreground when its aligned position is farther than
+    margin + ratio * range from every map point, whether closer or farther than the
+    old surface. If alignment fails (fitness too low or an implausible jump) the last
+    pose is kept and `aligned` turns False; a relearn is needed after moving far.
     """
 
-    def __init__(self, learn_frames=80, margin=0.15, ratio=0.02):
+    def __init__(self, learn_frames=80, margin=0.15, ratio=0.02, min_fitness=0.5,
+                 max_step=0.15, max_turn=math.radians(15), stride=3):
         if learn_frames < 1 or not all(math.isfinite(v) and v >= 0 for v in (margin, ratio)):
             raise ValueError('Invalid background parameters')
         self.learn_frames = int(learn_frames)
-        self.margin = float(margin)
-        self.ratio = float(ratio)
-        self.background = None
+        self.margin, self.ratio = float(margin), float(ratio)
+        self.min_fitness, self.max_step, self.max_turn = min_fitness, max_step, max_turn
+        self.stride = max(1, int(stride))
+        self.map_points = None
+        self.target = None
+        self.map_sector = (-math.pi, math.pi)  # angles the map covers, in the map frame
+        self.pose = np.eye(3)      # map <- current sensor frame
+        self.fitness = 0.0
+        self.aligned = False
         self.samples: list[np.ndarray] = []
         self.learning = False
 
     @property
     def ready(self) -> bool:
-        return self.background is not None
+        return self.map_points is not None
 
     def start_learning(self) -> None:
         self.samples = []
         self.learning = True
 
     def reset(self) -> None:
-        self.background = None
+        self.map_points = self.target = None
+        self.pose = np.eye(3)
+        self.fitness, self.aligned = 0.0, False
         self.samples = []
         self.learning = False
 
     @staticmethod
-    def _frame(ranges) -> np.ndarray:
+    def _points(ranges, angle_min, angle_increment):
+        """(indices, points) of the valid beams."""
         frame = np.asarray(ranges, dtype=float)
-        return np.where(np.isfinite(frame) & (frame > 0), frame, np.nan)
+        index = np.nonzero(np.isfinite(frame) & (frame > 0))[0]
+        angles = angle_min + index * angle_increment
+        return index, np.column_stack((frame[index] * np.cos(angles), frame[index] * np.sin(angles)))
 
-    def observe(self, ranges) -> bool:
-        """Accumulate one scan while learning; True when the model just became ready."""
+    def observe(self, ranges, angle_min, angle_increment) -> bool:
+        """Accumulate one scan while learning; True when the map just became ready."""
         if not self.learning:
             return False
-        frame = self._frame(ranges)
+        frame = np.asarray(ranges, dtype=float)
+        frame = np.where(np.isfinite(frame) & (frame > 0), frame, np.nan)
         if self.samples and len(frame) != len(self.samples[0]):
             self.samples = []
         self.samples.append(frame)
@@ -126,41 +144,52 @@ class BackgroundModel:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)  # all-NaN beams are open space
             median = np.nanmedian(stack, axis=0)
-        # A beam without a return in most frames is open space, even if something
-        # passed through it briefly while learning.
         mostly_open = np.sum(np.isfinite(stack), axis=0) * 2 < len(stack)
-        self.background = np.where(np.isnan(median) | mostly_open, np.inf, median)
+        background = np.where(np.isnan(median) | mostly_open, np.inf, median)
+        _, self.map_points = self._points(background, angle_min, angle_increment)
+        self.target = icp.Target(self.map_points)
+        self.map_sector = (angle_min, angle_min + (len(background) - 1) * angle_increment)
+        self.pose, self.fitness, self.aligned = np.eye(3), 1.0, True
         self.samples = []
         self.learning = False
         return True
 
-    def foreground(self, ranges) -> list[float]:
-        """Return ranges with background beams set to inf; passthrough until ready."""
-        if self.background is None:
+    def foreground(self, ranges, angle_min, angle_increment) -> list[float]:
+        """Ranges with background beams set to inf; passthrough until the map is ready."""
+        if not self.ready:
             return list(ranges)
+        index, points = self._points(ranges, angle_min, angle_increment)
+        if len(points) == 0:
+            return list(ranges)
+        self._align(points)
+        aligned = icp.apply(self.pose, points)
+        distance, _ = self.target.tree.query(aligned)
         frame = np.asarray(ranges, dtype=float)
-        if len(frame) != len(self.background):
-            self.reset()
-            self.start_learning()
-            return list(ranges)
-        finite = np.isfinite(self.background)
-        threshold = np.full_like(self.background, np.inf)
-        threshold[finite] = self.background[finite] * (1.0 - self.ratio) - self.margin
-        keep = np.isfinite(frame) & (frame > 0) & (frame < threshold)
-        return np.where(keep, frame, np.inf).tolist()
+        keep = distance > self.margin + self.ratio * frame[index]
+        # Directions the map never saw (revealed by a rotation) are unknown, not foreground.
+        heading = np.arctan2(aligned[:, 1], aligned[:, 0])
+        low, high = self.map_sector
+        keep &= (heading >= low + 0.02) & (heading <= high - 0.02)
+        out = np.full(len(frame), np.inf)
+        out[index[keep]] = frame[index[keep]]
+        return out.tolist()
 
-    def contour(self, angle_min, angle_increment, stride=5) -> list[Point2D]:
-        """Sampled background outline in sensor coordinates, for visualization."""
-        if self.background is None:
+    def _align(self, points: np.ndarray) -> None:
+        transform, fitness = icp.icp(points[::self.stride], self.target, self.pose)
+        mx, my, myaw = icp.to_pose(np.linalg.inv(self.pose) @ transform)
+        ok = (fitness >= self.min_fitness and math.hypot(mx, my) <= self.max_step
+              and abs(myaw) <= self.max_turn)
+        self.fitness = fitness
+        if ok:
+            self.pose = transform
+        self.aligned = ok
+
+    def contour(self, stride=5) -> list[Point2D]:
+        """Map points expressed in the current sensor frame, for visualization."""
+        if not self.ready:
             return []
-        points = []
-        for index in range(0, len(self.background), max(1, int(stride))):
-            distance = self.background[index]
-            if not math.isfinite(distance):
-                continue
-            angle = angle_min + index * angle_increment
-            points.append((float(distance * math.cos(angle)), float(distance * math.sin(angle))))
-        return points
+        shown = icp.apply(np.linalg.inv(self.pose), self.map_points[::max(1, int(stride))])
+        return [(float(x), float(y)) for x, y in shown]
 
 
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,
