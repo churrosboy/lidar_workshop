@@ -9,6 +9,7 @@
   <exec_depend>gl5_driver</exec_depend>
   <exec_depend>gl5_detection</exec_depend>
   <exec_depend>gl5_rviz_plugins</exec_depend>
+  <exec_depend>gl5_localization</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>launch_xml</exec_depend>
