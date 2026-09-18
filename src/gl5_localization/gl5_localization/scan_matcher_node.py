@@ -15,7 +15,9 @@ from tf2_ros import TransformBroadcaster
 from gl5_localization import icp as matching
 
 
+# 키프레임 ICP로 센서 오도메트리를 추정해 /gl5/odom, /gl5/path, TF를 발행하는 노드
 class ScanMatcherNode(Node):
+    # 파라미터와 퍼블리셔, TF 브로드캐스터, 스캔 구독을 준비한다
     def __init__(self):
         super().__init__('gl5_scan_matcher')
         self.configure_parameters()
@@ -37,9 +39,11 @@ class ScanMatcherNode(Node):
             f'Scan matcher: {self.odom_frame} -> {self.base_frame}, stride {self.stride}, '
             f'keyframe every {self.keyframe_distance} m / {math.degrees(self.keyframe_angle):.0f} deg')
 
+    # 파라미터를 읽고 범위를 검사한다
     def configure_parameters(self) -> None:
         descriptor = ParameterDescriptor(read_only=True)
 
+        # 읽기 전용 파라미터 하나를 선언하고 값을 돌려준다
         def param(name, default):
             return self.declare_parameter(name, default, descriptor).value
 
@@ -68,6 +72,7 @@ class ScanMatcherNode(Node):
                 or not 0 < self.min_fitness <= 1):
             raise ValueError('Invalid scan matcher parameters')
 
+    # 스캔을 키프레임에 정합해 포즈를 갱신하고, 많이 움직였으면 키프레임을 바꾼다
     def scan_callback(self, msg: LaserScan) -> None:
         self.scan_count += 1
         if self.scan_count % self.process_every:
@@ -120,15 +125,18 @@ class ScanMatcherNode(Node):
             f'ICP {1e3 * self.match_time_total / self.match_time_count:.1f} ms avg, '
             f'fitness {fitness:.2f}, pose ({self.pose_text()})', throttle_duration_sec=5.0)
 
+    # 현재 스캔을 새 키프레임으로 삼는다
     def set_keyframe(self, points: np.ndarray, odom_from_keyframe: np.ndarray) -> None:
         self.keyframe = matching.Target(points)
         self.odom_from_keyframe = odom_from_keyframe
         self.keyframe_from_sensor = np.eye(3)
 
+    # 로그용 포즈 문자열
     def pose_text(self) -> str:
         x, y, yaw = matching.to_pose(self.odom_from_keyframe @ self.keyframe_from_sensor)
         return f'{x:.2f}, {y:.2f}, {math.degrees(yaw):.1f} deg'
 
+    # 포즈가 망가졌을 때 오도메트리를 처음부터 다시 시작한다
     def reset_odometry(self, why: str) -> None:
         self.get_logger().error(f'Odometry reset: {why}')
         self.keyframe = None
@@ -137,6 +145,7 @@ class ScanMatcherNode(Node):
         self.last_motion = np.eye(3)
         self.path.poses.clear()
 
+    # 현재 포즈를 Odometry, Path, TF로 발행한다
     def publish(self, stamp) -> None:
         pose = self.odom_from_keyframe @ self.keyframe_from_sensor
         if not np.all(np.isfinite(pose)) or np.abs(pose[:2, 2]).max() > 1e4:
@@ -175,10 +184,12 @@ class ScanMatcherNode(Node):
             self.tf_broadcaster.sendTransform(tf)
 
     @staticmethod
+    # 스탬프를 초 단위 float으로
     def seconds(stamp) -> float:
         return stamp.sec + stamp.nanosec * 1e-9
 
 
+# 노드를 만들고 종료될 때까지 돌린다
 def main():
     rclpy.init()
     node = None
