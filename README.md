@@ -5,6 +5,12 @@ ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
 ## 1. 준비 (최초 1회)
 
+- 터미널에서 `git --version`을 입력해 git이 설치돼 있는지 확인합니다.
+  버전이 나오면 그대로 넘어갑니다.
+  설치되어 있지 않으면 "커맨드 라인 개발자 도구를 설치하시겠습니까?" 팝업이 뜨는데,
+  **설치**를 눌러 진행합니다. (팝업이 뜨지 않으면 터미널에 `xcode-select --install`을 입력합니다.)
+  설치는 몇 분 걸리며, 끝난 뒤 `git --version`으로 다시 확인합니다.
+
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)을 설치하고 실행합니다.
   준비됐는지 터미널에서 확인합니다. `linux aarch64`가 나오면 정상입니다.
 
@@ -14,7 +20,8 @@ ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
   `command not found`가 나오면 설치되지 않은 것이고, `Cannot connect to the Docker daemon`이 나오면 Docker Desktop이 꺼져 있는 것입니다. 앱을 켜고 잠시 기다린 뒤 다시 실행합니다.
 
-- 터미널에서 `python3 --version`이 나오는지 확인합니다. 없으면 `xcode-select --install`로 설치합니다.
+- 터미널에서 `python3 --version`이 나오는지 확인합니다.
+  없으면 위의 커맨드 라인 도구(`xcode-select --install`)를 설치하면 함께 들어옵니다.
 
 중계기용 `tcpdump`와 RViz 화면용 화면 공유(VNC)는 macOS에 기본으로 들어 있습니다.
 
