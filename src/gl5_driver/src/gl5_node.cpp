@@ -12,7 +12,7 @@
 #include <string>
 
 using Steady = std::chrono::steady_clock;
-// 단조 시계를 나노초 정수로
+// 단조 시계의 나노초 정수 값
 static int64_t steady_ns() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(Steady::now().time_since_epoch())
       .count();
@@ -21,7 +21,7 @@ static int64_t steady_ns() {
 // SOSLAB SDK로 GL3/GL5에 연결해 /scan과 /points를 발행하는 노드
 class Gl5Node : public rclcpp::Node {
  public:
-  // 파라미터를 읽고 퍼블리셔와 SDK 객체를 만든다
+  // 파라미터 읽기, 퍼블리셔와 SDK 객체 생성
   Gl5Node() : Node("gl5_node") {
     configure_parameters();
     validate_network_parameters();
@@ -31,12 +31,12 @@ class Gl5Node : public rclcpp::Node {
     lidar_ = std::make_unique<soslab::Lidar>(params_);
     lidar_->registerGetDataCallBack([this](auto frame) { receive(frame); });
   }
-  // 소멸 시 스트림을 멈추고 연결을 끊는다
+  // 소멸 시 스트림 정지와 연결 해제
   ~Gl5Node() override {
     stop();
   }
 
-  // 센서에 연결하고 스트림을 시작한 뒤 프레임 감시 타이머를 켠다
+  // 센서 연결, 스트림 시작, 프레임 감시 타이머 시작
   bool start() {
     RCLCPP_INFO(get_logger(), "%s UDP %s:%d -> PC %s:%d (FOV %.0f deg)", lidar_type_.c_str(),
                 params_.lidarIP.c_str(), params_.lidarPort, params_.pcIP.c_str(), params_.pcPort,
@@ -57,12 +57,12 @@ class Gl5Node : public rclcpp::Node {
         create_wall_timer(std::chrono::seconds(1), std::bind(&Gl5Node::check_frame_timeout, this));
     return true;
   }
-  // 프레임 타임아웃으로 실패했는지
+  // 프레임 타임아웃 실패 여부
   bool failed() const {
     return failed_;
   }
 
-  // 스트림을 멈추고 SDK 연결과 콜백을 정리한다
+  // 스트림 정지, SDK 연결과 콜백 정리
   void stop() {
     stopping_ = true;
     if (watchdog_) {
@@ -79,7 +79,7 @@ class Gl5Node : public rclcpp::Node {
   }
 
  private:
-  // lidar_type, IP/포트, 프레임, 거리 범위 파라미터를 읽는다
+  // lidar_type, IP/포트, 프레임, 거리 범위 파라미터 읽기
   void configure_parameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor;
     descriptor.read_only = true;
@@ -104,7 +104,7 @@ class Gl5Node : public rclcpp::Node {
     config_.angle_offset = declare_parameter<double>("angle_offset", 0.0, descriptor);
   }
 
-  // IP 주소와 포트 값이 유효한지 검사한다
+  // IP 주소와 포트 유효성 검사
   void validate_network_parameters() const {
     in_addr address{};
     if (inet_pton(AF_INET, params_.lidarIP.c_str(), &address) != 1 ||
@@ -114,7 +114,7 @@ class Gl5Node : public rclcpp::Node {
     }
   }
 
-  // 5초 동안 프레임이 없으면 실패로 표시한다
+  // 5초간 프레임 없음 → 실패 표시
   void check_frame_timeout() {
     if (steady_ns() - last_frame_ns_.load() > 5'000'000'000LL) {
       RCLCPP_ERROR(get_logger(), "No valid GL5 frames for 5 seconds; terminating");
@@ -124,7 +124,7 @@ class Gl5Node : public rclcpp::Node {
     }
   }
 
-  // SDK 프레임 콜백: LaserScan과 PointCloud2로 바꿔 발행한다
+  // SDK 프레임 콜백: LaserScan과 PointCloud2 변환 및 발행
   void receive(const std::shared_ptr<const soslab::FrameData>& frame) {
     if (stopping_ || !rclcpp::ok() || !frame) {
       return;
@@ -159,7 +159,7 @@ class Gl5Node : public rclcpp::Node {
   bool connected_ = false;
 };
 
-// 노드를 실행하고 실패 종류에 따라 종료 코드를 돌려준다
+// 노드 실행, 실패 종류별 종료 코드 반환
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   int code = 0;
