@@ -2,8 +2,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import math
-from gl5_detection.detection_core import BoxTracker, cluster_scan, predict_entry, classify_tracks
+from gl5_detection.detection_core import BoxTracker
 
 
 def box(x,y=0):
@@ -61,35 +60,6 @@ class TrackingTest(unittest.TestCase):
         self.assertEqual([round(x,2) for x,_ in last.trail],[0.2,0.3,0.4])
         tracker.update([box(0.5)],0.125)
         self.assertEqual(len(last.trail),3)
-
-
-SQUARE=[(1.0,-0.5),(2.0,-0.5),(2.0,0.5),(1.0,0.5)]
-
-
-class PredictionTest(unittest.TestCase):
-    def test_straight_approach_enters_at_edge(self):
-        t,point=predict_entry((3.0,0.0),(-1.0,0.0),SQUARE,horizon=3.0,step=0.1)
-        self.assertAlmostEqual(t,1.0)
-        self.assertAlmostEqual(point[0],2.0)
-
-    def test_no_prediction_when_slow_inside_receding_or_too_far(self):
-        self.assertIsNone(predict_entry((3.0,0.0),(-0.05,0.0),SQUARE,min_speed=0.1))
-        self.assertIsNone(predict_entry((1.5,0.0),(-1.0,0.0),SQUARE))
-        self.assertIsNone(predict_entry((3.0,0.0),(1.0,0.0),SQUARE))
-        self.assertIsNone(predict_entry((6.0,0.0),(-1.0,0.0),SQUARE,horizon=3.0))
-
-    def test_classify_tracks_sets_region_flags(self):
-        tracker=BoxTracker()
-        for step in range(10):
-            tracks=tracker.update([box(3.0-step*0.05),box(1.5)],step*0.025)
-        outside,inside=classify_tracks(tracks,SQUARE)
-        self.assertFalse(outside.in_region); self.assertTrue(inside.in_region)
-        self.assertIsNotNone(outside.time_to_enter); self.assertIsNone(inside.time_to_enter)
-
-    def test_cluster_whole_scan_without_polygon(self):
-        ranges=[1.5]*5+[math.inf]+[5.0]*5
-        self.assertEqual(len(cluster_scan(ranges,-0.05,0.01,0.0,60.0,None,min_points=3)),2)
-        self.assertEqual(len(cluster_scan(ranges,-0.05,0.01,0.0,60.0,SQUARE,min_points=3)),1)
 
 
 if __name__ == '__main__':

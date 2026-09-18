@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'gl5_localization'))
 import numpy as np
-from gl5_detection.detection_core import BackgroundModel
+from gl5_detection.background import BackgroundModel
 from gl5_localization.icp import apply, make_transform
 
 BEAMS, FOV = 1000, 180.0

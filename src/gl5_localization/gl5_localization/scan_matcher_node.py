@@ -95,8 +95,13 @@ class ScanMatcherNode(Node):
 
         started = time.perf_counter()
         guess = self.keyframe_from_sensor @ self.last_motion
-        transform, fitness = matching.icp(points, self.keyframe, guess, self.iterations,
-                                          self.max_correspondence)
+        try:
+            transform, fitness = matching.icp(points, self.keyframe, guess, self.iterations,
+                                              self.max_correspondence)
+        except NotImplementedError as exc:
+            self.get_logger().error(f'ICP 미구현: icp.py icp() 를 채우세요. {exc}',
+                                    throttle_duration_sec=5.0)
+            return
         self.match_time_total += time.perf_counter() - started
         self.match_time_count += 1
         motion = np.linalg.inv(self.keyframe_from_sensor) @ transform

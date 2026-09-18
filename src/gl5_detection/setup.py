@@ -9,7 +9,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/config', ['config/obstacles.yaml']),
+        ('share/' + package_name + '/config', ['config/obstacles.yaml', 'config/obstacles_step1.yaml',
+                                                'config/obstacles_step2.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
