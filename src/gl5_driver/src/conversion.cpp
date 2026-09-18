@@ -32,14 +32,12 @@ sensor_msgs::msg::LaserScan make_scan(const soslab::FrameData& frame, const Scan
   scan.header.stamp = stamp;
   scan.header.frame_id = config.frame_id;
   const size_t count = frame.depth[0].size();
-  // SDK angles are [90 - fov/2, 90 + fov/2] degrees (GL5: [-45, 225], GL3: [0, 180]);
-  // rotate -90 degrees so the scan center is +X.
   const double fov = config.fov_deg * pi / 180.0;
   scan.angle_min = -0.5 * fov + config.angle_offset;
   scan.angle_increment = fov / (count - 1);
   scan.angle_max = scan.angle_min + (count - 1) * scan.angle_increment;
   scan.scan_time = scan_time;
-  scan.time_increment = 0.0;  // Per-beam hardware timing has not been verified.
+  scan.time_increment = 0.0;
   scan.range_min = config.range_min;
   scan.range_max = config.range_max;
   scan.ranges.reserve(count);
@@ -77,4 +75,4 @@ sensor_msgs::msg::PointCloud2 make_cloud(const sensor_msgs::msg::LaserScan& scan
   }
   return cloud;
 }
-}  // namespace gl5_driver
+}

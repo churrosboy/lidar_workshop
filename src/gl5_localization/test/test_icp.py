@@ -8,7 +8,6 @@ from gl5_localization.icp import Target, apply, icp, make_transform, scan_to_poi
 
 
 def room(step=0.005):
-    """Walls of a 6 x 4 m room plus a pillar, so the outline has no rotational symmetry."""
     xs, ys = np.arange(-3, 3, step), np.arange(-2, 2, step)
     walls = [np.column_stack((xs, np.full_like(xs, -2.0))),
              np.column_stack((xs, np.full_like(xs, 2.0))),
@@ -23,7 +22,6 @@ ROOM = room()
 
 
 def simulated_scan(pose, beams=1500, fov_deg=270.0, stride=3):
-    """What a GL5 at `pose` (odom -> sensor) would see: nearest surface per beam."""
     local = apply(np.linalg.inv(pose), ROOM)
     angles = np.degrees(np.arctan2(local[:, 1], local[:, 0]))
     distances = np.hypot(local[:, 0], local[:, 1])
@@ -65,7 +63,6 @@ class IcpTest(unittest.TestCase):
 
     def test_target_normals_follow_walls(self):
         target = Target(simulated_scan(np.eye(3)))
-        # Away from the corners, where the neighbourhood spans two walls.
         bottom_wall = (np.abs(target.points[:, 1] + 2.0) < 0.02) & (np.abs(target.points[:, 0]) < 2.5)
         self.assertTrue(bottom_wall.any())
         self.assertTrue(np.allclose(np.abs(target.normals[bottom_wall][:, 1]), 1.0, atol=1e-3))
@@ -75,7 +72,6 @@ class IcpTest(unittest.TestCase):
         guess = make_transform(3.0, 3.0, 2.0)
         estimate, fitness = icp(before, before, init=guess)
         self.assertEqual(fitness, 0.0)
-        # A hopeless guess never turns into a confident garbage transform.
         self.assertTrue(np.allclose(estimate, guess) or fitness < 0.5)
         estimate, fitness = icp(before, before, init=np.full((3, 3), np.nan))
         self.assertEqual(fitness, 0.0)
@@ -84,13 +80,12 @@ class IcpTest(unittest.TestCase):
         before = simulated_scan(np.eye(3))
         _, fitness = icp(before + np.array([50.0, 50.0]), before)
         self.assertLess(fitness, 0.1)
-        _, fitness = icp(before[:3], before)  # fewer than min_pairs
+        _, fitness = icp(before[:3], before)
         self.assertEqual(fitness, 0.0)
 
     def test_scan_to_points_filters_and_strides(self):
         ranges = [math.inf, 1.0, 0.05, 2.0, 40.0, 3.0, math.nan, 4.0]
         points = scan_to_points(ranges, 0.0, math.pi / 2, min_range=0.1, max_range=30.0, stride=2)
-        # valid beams 1, 3, 5, 7 -> stride 2 keeps beams 1 (90 deg) and 5 (450 deg = 90 deg)
         self.assertEqual(len(points), 2)
         self.assertAlmostEqual(points[0][1], 1.0)
         self.assertAlmostEqual(points[1][1], 3.0)

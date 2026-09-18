@@ -205,6 +205,6 @@ class RegionPanel : public rviz_common::Panel {
   int64_t request_id_ = 0;
   std::chrono::steady_clock::time_point deadline_, last_state_;
 };
-}  // namespace gl5_rviz_plugins
+}
 
 PLUGINLIB_EXPORT_CLASS(gl5_rviz_plugins::RegionPanel, rviz_common::Panel)

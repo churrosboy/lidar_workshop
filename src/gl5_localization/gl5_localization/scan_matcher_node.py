@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""Keyframe ICP scan matcher: odometry, path and odom->laser TF from /scan alone.
-
-Each scan is aligned to the current keyframe (not the previous scan) so drift only
-accumulates when the keyframe changes. The previous motion seeds the next alignment.
-"""
 import math
 import time
 
@@ -25,10 +19,10 @@ class ScanMatcherNode(Node):
     def __init__(self):
         super().__init__('gl5_scan_matcher')
         self.configure_parameters()
-        self.keyframe = None            # matching.Target built from the keyframe scan
+        self.keyframe = None
         self.odom_from_keyframe = np.eye(3)
         self.keyframe_from_sensor = np.eye(3)
-        self.last_motion = np.eye(3)    # sensor motion between the last two scans
+        self.last_motion = np.eye(3)
         self.last_stamp = None
         self.scan_count = 0
         self.match_time_total = 0.0
@@ -61,7 +55,6 @@ class ScanMatcherNode(Node):
         self.max_range = param('max_range', 30.0)
         self.min_fitness = param('min_fitness', 0.5)
         self.min_points = param('min_points', 50)
-        # Motion between two processed scans beyond this is a mismatch, not movement.
         self.max_step = param('max_step', 0.15)
         self.max_turn = math.radians(param('max_turn_deg', 15.0))
         self.process_every = param('process_every', 1)
@@ -158,7 +151,7 @@ class ScanMatcherNode(Node):
         odom.pose.pose.position.x, odom.pose.pose.position.y = x, y
         odom.pose.pose.orientation.z, odom.pose.pose.orientation.w = qz, qw
         dt = self.seconds(stamp) - self.last_stamp if self.last_stamp is not None else 0.0
-        if dt > 0:  # velocity in the sensor frame, from the motion since the last scan
+        if dt > 0:
             mx, my, myaw = matching.to_pose(self.last_motion)
             odom.twist.twist.linear.x, odom.twist.twist.linear.y = mx / dt, my / dt
             odom.twist.twist.angular.z = myaw / dt

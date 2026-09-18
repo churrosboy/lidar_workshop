@@ -13,7 +13,6 @@ ANGLE_MIN, ANGLE_INC = math.radians(-FOV / 2), math.radians(FOV) / (BEAMS - 1)
 
 
 def room_scan(pose=np.eye(3), extra=(), pillar=True):
-    """Ranges a 180-degree sensor at `pose` sees in a 6 x 4 m room with a pillar."""
     step = 0.005
     xs, ys = np.arange(-3, 3, step), np.arange(-2, 2, step)
     walls = [np.column_stack((xs, np.full_like(xs, -2.0))), np.column_stack((xs, np.full_like(xs, 2.0))),
@@ -48,7 +47,7 @@ class BackgroundTest(unittest.TestCase):
     def test_passthrough_until_ready(self):
         model = BackgroundModel(learn_frames=3)
         self.assertEqual(model.foreground([1.0, math.inf], 0.0, 0.1), [1.0, math.inf])
-        self.assertFalse(model.observe([1.0, 2.0], 0.0, 0.1))  # not learning yet
+        self.assertFalse(model.observe([1.0, 2.0], 0.0, 0.1))
         self.assertFalse(model.ready)
 
     def test_static_scene_is_all_background(self):
@@ -65,10 +64,7 @@ class BackgroundTest(unittest.TestCase):
 
     def test_new_object_and_removed_object_are_both_foreground(self):
         model = learned()
-        # A box appears in front of the wall: closer than the background.
         self.assertGreater(foreground_count(model, room_scan(extra=[(2.0, -1.0, 0.2)])), 10)
-        # The pillar was in the background; without it the wall behind becomes visible,
-        # which is a different place than the map: foreground as well.
         self.assertGreater(foreground_count(learned(), room_scan(pillar=False)), 5)
 
     def test_small_sensor_rotation_is_absorbed_and_objects_still_detected(self):

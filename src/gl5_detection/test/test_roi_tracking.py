@@ -60,7 +60,7 @@ class TrackingTest(unittest.TestCase):
             last=tracker.update([box(step*0.1)],step*0.025)[0]
         self.assertEqual([round(x,2) for x,_ in last.trail],[0.2,0.3,0.4])
         tracker.update([box(0.5)],0.125)
-        self.assertEqual(len(last.trail),3)  # earlier snapshot unchanged
+        self.assertEqual(len(last.trail),3)
 
 
 SQUARE=[(1.0,-0.5),(2.0,-0.5),(2.0,0.5),(1.0,0.5)]

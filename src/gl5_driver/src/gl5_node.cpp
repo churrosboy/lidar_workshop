@@ -65,7 +65,7 @@ class Gl5Node : public rclcpp::Node {
       if (!lidar_->streamStop()) {
         RCLCPP_WARN(get_logger(), "Stream stop acknowledgement missing");
       }
-      lidar_->disconnectLidar();  // Joins callback worker before node members are destroyed.
+      lidar_->disconnectLidar();
       lidar_->unregisterGetDataCallBack();
       connected_ = false;
     }
@@ -75,7 +75,6 @@ class Gl5Node : public rclcpp::Node {
   void configure_parameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor;
     descriptor.read_only = true;
-    // Sensor model: "GL5" (270 deg, 1500 pts) or "GL3" (180 deg, 1000 pts).
     lidar_type_ = declare_parameter<std::string>("lidar_type", "GL5", descriptor);
     if (lidar_type_ == "GL5") {
       params_.lidarTypeValue = soslab::lidarType::GL5;

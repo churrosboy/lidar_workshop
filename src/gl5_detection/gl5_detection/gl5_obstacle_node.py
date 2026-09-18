@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-"""ROS adapter for GL5 obstacle detection and interactive region editing.
-
-Read scan_callback() for the processing flow and publish_outputs() for ROS output.
-The calculations live in detection_core.py; storage and RViz helpers are below.
-
-The region is kept in the "anchor" frame: the sensor frame at the time the background
-map was learned. While the background is aligned, the region therefore stays put in
-the room when the sensor rotates or shifts; without a background it is the sensor frame.
-"""
 from collections.abc import Callable
 import json
 import math
@@ -36,8 +26,6 @@ from gl5_detection import detection_core as core
 
 
 class ObstacleNode(Node):
-    """Receive scans, call the detection core and publish results for ROS/RViz."""
-
     def __init__(self):
         super().__init__('gl5_obstacle_detector')
         self.configure_parameters()
@@ -55,7 +43,6 @@ class ObstacleNode(Node):
                                'learn_background}')
         self.publish_outputs()
 
-    # Scan processing and state
 
     def scan_callback(self, msg: LaserScan) -> None:
         now = time.monotonic()
@@ -68,7 +55,6 @@ class ObstacleNode(Node):
         self.last_valid_scan_time = now
         ranges = msg.ranges
         if self.background is not None:
-            # Learning runs even without a region so the background outline is visible.
             if self.background.learning:
                 if self.background.observe(msg.ranges, msg.angle_min, msg.angle_increment):
                     self.get_logger().info('Background map learned; returns off the map are obstacles')
@@ -81,7 +67,6 @@ class ObstacleNode(Node):
                     throttle_duration_sec=5.0)
         if not self.region or self.editing:
             return
-        # Cluster the whole scan so approaching objects are tracked before they enter.
         self.obstacle_clusters = core.cluster_scan(
             ranges, msg.angle_min, msg.angle_increment,
             msg.range_min, msg.range_max, None, self.min_points, self.max_gap,
@@ -100,7 +85,6 @@ class ObstacleNode(Node):
             return False
         if msg.angle_increment <= 0 or msg.range_min < 0 or msg.range_max <= msg.range_min:
             return False
-        # A received frame with no valid return is NO_DATA, not an empty region.
         return any(
             math.isfinite(distance) and distance > 0 and msg.range_min <= distance <= msg.range_max
             for distance in msg.ranges
@@ -125,7 +109,6 @@ class ObstacleNode(Node):
         self.publish_outputs()
 
     def alerting_tracks(self) -> list[core.Track]:
-        """Tracks predicted to enter soon, or already inside while occupancy is debouncing."""
         return [track for track in self.box_tracks if track.in_region or (
             track.time_to_enter is not None and track.time_to_enter <= self.warning_time)]
 
@@ -139,14 +122,12 @@ class ObstacleNode(Node):
         self.clear_detection_results()
         self.last_valid_scan_time = None
 
-    # ROS output
 
     def publish_outputs(self) -> None:
         self.publish_obstacle_markers()
         self.publish_detection_state()
         self.publish_region()
 
-    # Anchor (background map) frame <-> current sensor frame
 
     def anchor_from_laser(self) -> np.ndarray:
         if self.background is not None and self.background.ready:
@@ -180,7 +161,6 @@ class ObstacleNode(Node):
             self.frame, self.get_clock().now().to_msg(), self.to_laser(self.region)
         ))
 
-    # Parameters and ROS setup
 
     def configure_parameters(self) -> None:
         descriptor = ParameterDescriptor(read_only=True)
@@ -216,7 +196,6 @@ class ObstacleNode(Node):
                 trail_length < 1:
             raise ValueError('Invalid prediction parameters')
         self.occupancy_filter = core.Occupancy(enter, leave)
-        # None disables background subtraction; otherwise learning starts with the first scans.
         self.background = None
         if background_enabled:
             self.background = core.BackgroundModel(learn_frames, margin, ratio)
@@ -270,7 +249,6 @@ class ObstacleNode(Node):
             for name, action in region_actions
         ]
 
-    # Region editing and persistence
 
     def clicked_point_callback(self, msg: PointStamped) -> None:
         if msg.header.frame_id != self.frame:
@@ -315,7 +293,6 @@ class ObstacleNode(Node):
         if not self.editing:
             raise ValueError('Not editing')
         candidate = core.validate_polygon(self.draft)
-        # Commit only after a successful atomic save; an invalid draft never replaces the ROI.
         self.write_region(candidate)
         self.region = candidate
         self.draft = []
@@ -330,7 +307,6 @@ class ObstacleNode(Node):
         return 'Editing cancelled; previous region restored'
 
     def clear(self):
-        # A saved empty region makes clear persist across restarts.
         self.write_region([])
         self.region = []
         self.draft = []
@@ -355,12 +331,10 @@ class ObstacleNode(Node):
     def write_region(self, region: list[core.Point2D]) -> None:
         write_region(self.region_file, self.frame, region)
 
-    # Background subtraction
 
     def learn_background(self):
         if self.background is None:
             raise ValueError('Background subtraction is disabled (background_enabled=false)')
-        # The new map frame is the current sensor frame: re-express the region in it.
         self.region, self.draft = self.to_laser(self.region), self.to_laser(self.draft)
         self.background.reset()
         self.background.start_learning()
@@ -368,7 +342,6 @@ class ObstacleNode(Node):
         return (f'Learning background map from the next {self.background.learn_frames} scans; '
                 'keep the area clear and the sensor still')
 
-    # RViz menu and service callbacks
 
     def setup_menu(self):
         self.menu_server = InteractiveMarkerServer(self, '/gl5/region_menu')
@@ -411,8 +384,6 @@ class ObstacleNode(Node):
         return callback
 
 
-# Region file persistence
-
 def read_region(path: Path, frame_id: str) -> list[core.Point2D]:
     data = json.loads(path.read_text())
     if data['version'] != 1 or data['frame_id'] != frame_id:
@@ -422,7 +393,6 @@ def read_region(path: Path, frame_id: str) -> list[core.Point2D]:
 
 
 def write_region(path: Path, frame_id: str, vertices: list[core.Point2D]) -> None:
-    """Keep the previous file intact if writing the replacement fails."""
     path.parent.mkdir(parents=True, exist_ok=True)
     filename = None
     try:
@@ -442,8 +412,6 @@ def write_region(path: Path, frame_id: str, vertices: list[core.Point2D]) -> Non
             os.unlink(filename)
 
 
-# RViz message construction
-
 STATE_COLORS = {
     'CLEAR': (0.1, 0.9, 0.4, 1.0),
     'OCCUPIED': (1.0, 0.2, 0.1, 1.0),
@@ -453,7 +421,6 @@ STATE_COLORS = {
     'LEARNING': (0.4, 0.7, 1.0, 1.0),
     'WARNING': (1.0, 0.6, 0.1, 1.0),
 }
-# Track colour by relation to the region: inside, predicted to enter, elsewhere.
 TRACK_COLORS = {
     'inside': (1.0, 0.1, 0.1, 1.0),
     'approaching': (1.0, 0.8, 0.1, 1.0),
@@ -526,7 +493,6 @@ class RegionVisualization:
         for track in tracks:
             markers.extend(self._obstacle_markers(track))
         markers.append(self._hit_points(clusters))
-        # Status and action guidance live in RegionPanel, not in a scene label.
         return MarkerArray(markers=markers)
 
     def _marker(self, namespace, identifier, kind, color) -> Marker:
@@ -545,7 +511,6 @@ class RegionVisualization:
         return [Point(x=float(x), y=float(y), z=0.03) for x, y in coordinates]
 
     def _selection_surface(self) -> Marker:
-        # PublishPoint needs selectable geometry even where there are no returns.
         floor = self._marker('selection_surface', 0, Marker.CUBE, (0.2, 0.3, 0.4, 0.12))
         floor.pose.position.z = -0.08
         floor.scale.x = floor.scale.y = 120.0
@@ -587,7 +552,6 @@ class RegionVisualization:
         label.pose.position.y = float(y1 + self.label_height + 0.04)
         label.pose.position.z = 0.08
         speed = '--' if track.speed is None else f'{track.speed:.2f}'
-        # RViz's text renderer can give ASCII spaces an excessive width.
         label.text = f'#{track.id}\n{x1-x0:.2f}x{y1-y0:.2f}\n{speed}m/s'
         if track.time_to_enter is not None:
             label.text += f'\nin{track.time_to_enter:.1f}s'
@@ -602,7 +566,6 @@ class RegionVisualization:
         return markers
 
     def _prediction_markers(self, track: core.Track) -> list[Marker]:
-        # Dashed line from the current centre to the predicted entry point.
         path = self._marker('predictions', track.id, Marker.LINE_LIST, PREDICTION_COLOR)
         path.scale.x = 0.02
         (sx, sy), (ex, ey) = track.center, track.entry_point

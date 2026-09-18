@@ -1,7 +1,3 @@
-"""Replay workshop interactions against captured RViz/state outputs.
-
-Set UPDATE_FIXTURES=1 to rewrite the fixtures after an intentional output change.
-"""
 import json
 import math
 import os
@@ -31,8 +27,6 @@ class Publisher:
 
 
 class DetectorHarness(ObstacleNode):
-    """Exercise real callbacks without DDS, a sensor, or a running RViz."""
-
     def __init__(self, region_file):
         self.frame = 'laser'
         self.region_file = region_file
@@ -49,7 +43,7 @@ class DetectorHarness(ObstacleNode):
         self.region, self.draft, self.obstacle_clusters = [], [], []
         self.editing = False
         self.last_valid_scan_time = None
-        self.background = None  # golden fixture predates background subtraction
+        self.background = None
         self.state = 'NO_REGION'
         self.menu_notice = ''
         self.visualization = RegionVisualization(
@@ -82,8 +76,6 @@ def scan(ranges, frame='laser'):
 
 
 class Recorder:
-    """Drive a harness with a fixed clock and snapshot every published output."""
-
     def __init__(self, region_file):
         self.node = DetectorHarness(region_file)
         self.region_file = region_file
@@ -110,7 +102,6 @@ class Recorder:
             self.node.scan_callback(scan(ranges, frame))
 
     def result(self):
-        # JSON normalizes coordinate tuples just like the checked-in fixture.
         return json.loads(json.dumps(self.snapshots))
 
 
@@ -164,7 +155,6 @@ def replay(region_file):
 
 
 def replay_prediction(region_file):
-    """An object approaches the region at 1 m/s, enters, turns back and leaves."""
     recorder = Recorder(region_file)
     node, record, receive = recorder.node, recorder.record, recorder.receive
     node.region = [(0.2, -0.5), (2.0, -0.5), (2.0, 0.5), (0.2, 0.5)]
@@ -180,22 +170,22 @@ def replay_prediction(region_file):
 
     now = step(0, 3.5)
     record('first sight, no speed yet', now)
-    for index in range(1, 7):  # 3.2 m: still 1.2 s from the region (> 1 s warning)
+    for index in range(1, 7):
         now = step(index, 3.5 - index * 0.05)
     record('tracked outside, not yet warning', now)
-    for index in range(7, 23):  # 2.4 m: 0.4 s from the region
+    for index in range(7, 23):
         now = step(index, 3.5 - index * 0.05)
     record('warning: predicted entry', now)
-    for index in range(23, 32):  # crosses x=2.0 at index 30
+    for index in range(23, 32):
         now = step(index, 3.5 - index * 0.05)
     record('inside, entry pending', now)
     for index in range(32, 35):
         now = step(index, 3.5 - index * 0.05)
     record('occupied', now)
-    for index in range(35, 42):  # turns around and leaves at index 40
+    for index in range(35, 42):
         now = step(index, 1.75 + (index - 34) * 0.05)
     record('leaving, exit pending', now)
-    receive([math.inf] * 7 + [8.0] * 4, 3.6)  # valid scan, fewer than min_points
+    receive([math.inf] * 7 + [8.0] * 4, 3.6)
     record('gone, clear', 3.6)
     return recorder.result()
 
@@ -208,13 +198,11 @@ def load_or_update_fixture(name, actual):
 
 
 class RegionAnchorTest(unittest.TestCase):
-    """The region is stored in the background-map frame and follows the alignment."""
-
     def test_region_and_clicks_follow_background_pose(self):
         import numpy as np
         with tempfile.TemporaryDirectory() as directory:
             node = DetectorHarness(Path(directory) / 'region.json')
-            yaw = math.pi / 2  # map <- laser: the sensor has turned 90 degrees
+            yaw = math.pi / 2
             node.background = SimpleNamespace(
                 ready=True, learning=False, aligned=True, fitness=1.0,
                 pose=np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
@@ -226,7 +214,7 @@ class RegionAnchorTest(unittest.TestCase):
                 self.assertAlmostEqual(x, ex); self.assertAlmostEqual(y, ey)
             node.edit()
             point = PointStamped(); point.header.frame_id = 'laser'
-            point.point.x, point.point.y = 0.0, -1.5  # clicked in the sensor frame
+            point.point.x, point.point.y = 0.0, -1.5
             with patch('gl5_detection.gl5_obstacle_node.time.monotonic', return_value=0.0):
                 node.clicked_point_callback(point)
             self.assertAlmostEqual(node.draft[0][0], 1.5); self.assertAlmostEqual(node.draft[0][1], 0.0)
@@ -274,8 +262,8 @@ class ObstacleBehaviorTest(unittest.TestCase):
         self.assertEqual(len(by_ns(warning, 'trails')), 1)
         self.assertIn('in', by_ns(warning, 'obstacle_labels')[0]['text'])
         self.assertAlmostEqual(by_ns(warning, 'entry_points')[0]['pose']['position']['x'], 2.0, 1)
-        self.assertEqual(by_ns(actual[4], 'predictions'), [])  # inside: no prediction
-        self.assertEqual(by_ns(actual[5], 'predictions'), [])  # receding: no prediction
+        self.assertEqual(by_ns(actual[4], 'predictions'), [])
+        self.assertEqual(by_ns(actual[5], 'predictions'), [])
         self.assert_matches_fixture('prediction_behavior.json', actual)
 
     def test_failed_save_preserves_applied_region_and_draft(self):
