@@ -54,18 +54,21 @@ class ScanMatcherNode(Node):
         self.publish_tf = param('publish_tf', True)
         self.stride = param('stride', 3)
         self.iterations = param('iterations', 20)
-        self.max_correspondence = param('max_correspondence', 0.5)
+        self.max_correspondence = param('max_correspondence', 0.3)
         self.keyframe_distance = param('keyframe_distance', 0.2)
         self.keyframe_angle = math.radians(param('keyframe_angle_deg', 10.0))
         self.min_range = param('min_range', 0.1)
         self.max_range = param('max_range', 30.0)
         self.min_fitness = param('min_fitness', 0.5)
         self.min_points = param('min_points', 50)
+        # Motion between two processed scans beyond this is a mismatch, not movement.
+        self.max_step = param('max_step', 0.15)
+        self.max_turn = math.radians(param('max_turn_deg', 15.0))
         self.process_every = param('process_every', 1)
         self.path_max_poses = param('path_max_poses', 2000)
         positive = (self.stride, self.iterations, self.max_correspondence, self.keyframe_distance,
                     self.keyframe_angle, self.max_range, self.process_every, self.path_max_poses,
-                    self.min_points)
+                    self.min_points, self.max_step, self.max_turn)
         if (not self.odom_frame or not self.base_frame or self.odom_frame == self.base_frame
                 or any(not math.isfinite(v) or v <= 0 for v in positive)
                 or self.min_range < 0 or self.min_range >= self.max_range
@@ -98,15 +101,23 @@ class ScanMatcherNode(Node):
                                           self.max_correspondence)
         self.match_time_total += time.perf_counter() - started
         self.match_time_count += 1
+        motion = np.linalg.inv(self.keyframe_from_sensor) @ transform
+        mx, my, myaw = matching.to_pose(motion)
         if fitness < self.min_fitness:
-            self.get_logger().warning(
-                f'Match rejected (fitness {fitness:.2f} < {self.min_fitness}); keeping last pose',
-                throttle_duration_sec=2.0)
+            reason = f'fitness {fitness:.2f} < {self.min_fitness}'
+        elif (not np.all(np.isfinite(transform)) or math.hypot(mx, my) > self.max_step
+              or abs(myaw) > self.max_turn):
+            reason = f'implausible motion {math.hypot(mx, my):.2f} m / {math.degrees(myaw):.0f} deg'
+        else:
+            reason = None
+        if reason:
+            self.get_logger().warning(f'Match rejected ({reason}); keeping last pose',
+                                      throttle_duration_sec=2.0)
             self.last_motion = np.eye(3)
             self.publish(msg.header.stamp)
             return
 
-        self.last_motion = np.linalg.inv(self.keyframe_from_sensor) @ transform
+        self.last_motion = motion
         self.keyframe_from_sensor = transform
         x, y, yaw = matching.to_pose(transform)
         if math.hypot(x, y) > self.keyframe_distance or abs(yaw) > self.keyframe_angle:
@@ -125,8 +136,20 @@ class ScanMatcherNode(Node):
         x, y, yaw = matching.to_pose(self.odom_from_keyframe @ self.keyframe_from_sensor)
         return f'{x:.2f}, {y:.2f}, {math.degrees(yaw):.1f} deg'
 
+    def reset_odometry(self, why: str) -> None:
+        self.get_logger().error(f'Odometry reset: {why}')
+        self.keyframe = None
+        self.odom_from_keyframe = np.eye(3)
+        self.keyframe_from_sensor = np.eye(3)
+        self.last_motion = np.eye(3)
+        self.path.poses.clear()
+
     def publish(self, stamp) -> None:
-        x, y, yaw = matching.to_pose(self.odom_from_keyframe @ self.keyframe_from_sensor)
+        pose = self.odom_from_keyframe @ self.keyframe_from_sensor
+        if not np.all(np.isfinite(pose)) or np.abs(pose[:2, 2]).max() > 1e4:
+            self.reset_odometry('pose is not finite or beyond 10 km')
+            pose = np.eye(3)
+        x, y, yaw = matching.to_pose(pose)
         qz, qw = math.sin(yaw / 2), math.cos(yaw / 2)
 
         odom = Odometry()

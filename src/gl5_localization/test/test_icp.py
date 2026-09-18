@@ -70,6 +70,16 @@ class IcpTest(unittest.TestCase):
         self.assertTrue(bottom_wall.any())
         self.assertTrue(np.allclose(np.abs(target.normals[bottom_wall][:, 1]), 1.0, atol=1e-3))
 
+    def test_returned_transform_is_scored_and_divergence_returns_guess(self):
+        before = simulated_scan(np.eye(3))
+        guess = make_transform(3.0, 3.0, 2.0)
+        estimate, fitness = icp(before, before, init=guess)
+        self.assertEqual(fitness, 0.0)
+        # A hopeless guess never turns into a confident garbage transform.
+        self.assertTrue(np.allclose(estimate, guess) or fitness < 0.5)
+        estimate, fitness = icp(before, before, init=np.full((3, 3), np.nan))
+        self.assertEqual(fitness, 0.0)
+
     def test_no_overlap_reports_low_fitness(self):
         before = simulated_scan(np.eye(3))
         _, fitness = icp(before + np.array([50.0, 50.0]), before)
