@@ -88,19 +88,9 @@ class BackgroundModel:
         self._align(points)
         aligned = icp.apply(self.pose, points)
         frame = np.asarray(ranges, dtype=float)
-        # ===== [2단계 실습] 배경 차분 판정을 채우세요 =====
-        # 주어진 것: aligned = 현재 스캔 점들을 배경 지도 좌표계로 옮긴 (N, 2) 배열
-        #           index   = 각 점이 몇 번째 빔인지 (N,), frame = 전체 빔 거리 (빔 수,)
-        #           self.target.tree (지도 점 KD 트리), self.margin, self.ratio, self.map_sector
-        # 목표: 배경 지도에 없는 자리의 점만 남긴 거리 배열(빔 수,)을 list로 반환. 나머지 빔은 np.inf
-        # 순서:
-        #  1. distance, _ = self.target.tree.query(aligned)  → 각 점에서 가장 가까운 지도 점까지 거리
-        #  2. keep = distance > self.margin + self.ratio * frame[index]  (멀리 있는 점일수록 여유를 더 줌)
-        #  3. 지도가 본 적 없는 방향은 제외: heading = arctan2(y, x)가 map_sector (low, high) 안쪽
-        #     (양 끝 0.02 rad 여유)일 때만 keep 유지
-        #  4. out = np.full(len(frame), np.inf); out[index[keep]] = frame[index[keep]]; return out.tolist()
-        # 채점: pytest test/test_background.py
-        raise NotImplementedError('2단계: BackgroundModel.foreground 판정을 채우세요')
+        # =======Insert Your Code=======
+        raise NotImplementedError('2단계 BackgroundModel.foreground')
+        # =======Insert Your Code=======
 
     # ICP로 포즈 갱신, 실패하거나 튀면 이전 포즈 유지 (ICP 미구현이면 센서 고정 가정)
     def _align(self, points: np.ndarray) -> None:

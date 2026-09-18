@@ -85,18 +85,10 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
         if len(current) >= min_points:
             groups.append(current.copy())
         current.clear()
-    # ===== [1단계 실습] 군집화 루프를 채우세요 =====
-    # 입력: ranges[i] = i번째 빔의 거리(m), 그 빔의 각도 = angle_min + i * angle_increment
-    # 출력: groups = 군집 목록, 군집 = (x, y) 점 목록. current에 점을 모으고 flush()가 확정합니다.
-    # 순서:
-    #  1. 거리가 유한하지 않거나(math.isfinite) 0 이하이거나 [range_min, range_max] 밖이면 건너뜀
-    #  2. 극좌표 → 직교좌표: point = (distance*cos(angle), distance*sin(angle))
-    #  3. polygon이 None이 아니고 inside(point, polygon)이 False면 flush() 후 건너뜀
-    #  4. current가 비어 있지 않고 math.dist(current[-1], point) > max_gap이면 flush()
-    #  5. current.append(point)
-    # 채점: pytest test/test_clustering.py
     for i, distance in enumerate(ranges):
-        raise NotImplementedError('1단계: cluster_scan 루프를 채우세요')
+        # =======Insert Your Code=======
+        raise NotImplementedError('1단계 cluster_scan')
+        # =======Insert Your Code=======
     flush()
     return groups
 
