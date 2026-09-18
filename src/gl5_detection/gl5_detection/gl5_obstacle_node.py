@@ -74,12 +74,16 @@ class ObstacleNode(Node):
                 return
         if not self.region or self.editing:
             return
+        # Cluster the whole scan so approaching objects are tracked before they enter.
         self.obstacle_clusters = core.cluster_scan(
             ranges, msg.angle_min, msg.angle_increment,
-            msg.range_min, msg.range_max, self.region, self.min_points, self.max_gap,
+            msg.range_min, msg.range_max, None, self.min_points, self.max_gap,
         )
-        self.box_tracks = self.tracker.update(self.obstacle_clusters, now)
-        self.occupancy_filter.update(bool(self.obstacle_clusters), now)
+        self.box_tracks = core.classify_tracks(
+            self.tracker.update(self.obstacle_clusters, now), self.region,
+            self.predict_horizon, self.predict_step, self.min_predict_speed,
+        )
+        self.occupancy_filter.update(any(track.in_region for track in self.box_tracks), now)
 
     def is_valid_scan(self, msg: LaserScan) -> bool:
         if msg.header.frame_id != self.frame or len(msg.ranges) < 2:
@@ -105,9 +109,18 @@ class ObstacleNode(Node):
             self.clear_detection_results()
         elif self.background is not None and self.background.learning:
             self.state = 'LEARNING'
+        elif self.occupancy_filter.occupied:
+            self.state = 'OCCUPIED'
+        elif self.alerting_tracks():
+            self.state = 'WARNING'
         else:
-            self.state = 'OCCUPIED' if self.occupancy_filter.occupied else 'CLEAR'
+            self.state = 'CLEAR'
         self.publish_outputs()
+
+    def alerting_tracks(self) -> list[core.Track]:
+        """Tracks predicted to enter soon, or already inside while occupancy is debouncing."""
+        return [track for track in self.box_tracks if track.in_region or (
+            track.time_to_enter is not None and track.time_to_enter <= self.warning_time)]
 
     def clear_detection_results(self) -> None:
         self.obstacle_clusters = []
@@ -140,6 +153,7 @@ class ObstacleNode(Node):
     def publish_detection_state(self) -> None:
         self.state_pub.publish(String(data=self.state))
         self.flag_pub.publish(Bool(data=self.state == 'OCCUPIED'))
+        self.warning_pub.publish(Bool(data=self.state in ('WARNING', 'OCCUPIED')))
 
     def publish_region(self) -> None:
         self.region_pub.publish(make_region_polygon(
@@ -166,20 +180,31 @@ class ObstacleNode(Node):
         speed_window = param('speed_window', 0.4)
         enter = param('enter_delay', 0.2)
         leave = param('exit_delay', 0.5)
+        self.predict_horizon = param('predict_horizon', 3.0)
+        self.predict_step = param('predict_step', 0.1)
+        self.warning_time = param('warning_time', 2.0)
+        self.min_predict_speed = param('min_predict_speed', 0.1)
+        trail_length = param('trail_length', 60)
         background_enabled = param('background_enabled', True)
         learn_frames = param('background_learn_frames', 80)
         margin = param('background_margin', 0.15)
         ratio = param('background_ratio', 0.02)
         self.validate_parameters(match_distance, max_age, speed_window, enter, leave)
+        if any(not math.isfinite(v) or v <= 0 for v in
+               (self.predict_horizon, self.predict_step, self.warning_time)) or \
+                not math.isfinite(self.min_predict_speed) or self.min_predict_speed < 0 or \
+                trail_length < 1:
+            raise ValueError('Invalid prediction parameters')
         self.occupancy_filter = core.Occupancy(enter, leave)
         # None disables background subtraction; otherwise learning starts with the first scans.
         self.background = None
         if background_enabled:
             self.background = core.BackgroundModel(learn_frames, margin, ratio)
             self.background.start_learning()
-        self.tracker = core.BoxTracker(match_distance, max_age, speed_window)
+        self.tracker = core.BoxTracker(match_distance, max_age, speed_window, trail_length)
         self.visualization = RegionVisualization(
-            self.frame, self.label_height, lambda: self.get_clock().now().to_msg()
+            self.frame, self.label_height, lambda: self.get_clock().now().to_msg(),
+            self.warning_time,
         )
 
     def validate_parameters(self, match_distance, max_age, speed_window, enter, leave) -> None:
@@ -213,6 +238,7 @@ class ObstacleNode(Node):
         self.region_pub = self.create_publisher(PolygonStamped, '/gl5/region', qos)
         self.state_pub = self.create_publisher(String, '/gl5/obstacle_state', qos)
         self.flag_pub = self.create_publisher(Bool, '/gl5/obstacle_detected', qos)
+        self.warning_pub = self.create_publisher(Bool, '/gl5/collision_warning', qos)
         self.create_subscription(PointStamped, '/clicked_point', self.clicked_point_callback, 10)
         self.create_subscription(LaserScan, '/scan', self.scan_callback, qos_profile_sensor_data)
         region_actions = (
@@ -402,8 +428,16 @@ STATE_COLORS = {
     'NO_REGION': (1.0, 0.8, 0.1, 1.0),
     'NO_DATA': (0.6, 0.6, 0.6, 1.0),
     'LEARNING': (0.4, 0.7, 1.0, 1.0),
+    'WARNING': (1.0, 0.6, 0.1, 1.0),
 }
-OBSTACLE_COLOR = (1.0, 0.1, 0.1, 1.0)
+# Track colour by relation to the region: inside, predicted to enter, elsewhere.
+TRACK_COLORS = {
+    'inside': (1.0, 0.1, 0.1, 1.0),
+    'approaching': (1.0, 0.8, 0.1, 1.0),
+    'outside': (0.2, 0.9, 0.4, 1.0),
+}
+TRAIL_COLOR = (0.3, 0.8, 1.0, 0.9)
+PREDICTION_COLOR = (1.0, 0.8, 0.1, 0.9)
 BACKGROUND_COLOR = (0.55, 0.55, 0.6, 0.8)
 
 
@@ -445,10 +479,12 @@ def make_region_polygon(
 
 
 class RegionVisualization:
-    def __init__(self, frame_id: str, label_height: float, timestamp: Callable[[], Time]):
+    def __init__(self, frame_id: str, label_height: float, timestamp: Callable[[], Time],
+                 warning_time: float = 2.0):
         self.frame_id = frame_id
         self.label_height = label_height
         self.timestamp = timestamp
+        self.warning_time = warning_time
 
     def build_markers(
         self,
@@ -508,13 +544,21 @@ class RegionVisualization:
         dots.points = self._points(vertices)
         return [line, dots]
 
+    def _track_status(self, track: core.Track) -> str:
+        if track.in_region:
+            return 'inside'
+        if track.time_to_enter is not None and track.time_to_enter <= self.warning_time:
+            return 'approaching'
+        return 'outside'
+
     def _obstacle_markers(self, track: core.Track) -> list[Marker]:
         x0, y0, x1, y1 = track.box
-        box = self._marker('obstacles', track.id, Marker.LINE_STRIP, OBSTACLE_COLOR)
+        color = TRACK_COLORS[self._track_status(track)]
+        box = self._marker('obstacles', track.id, Marker.LINE_STRIP, color)
         box.scale.x = 0.025
         box.points = self._points([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)])
 
-        label = self._marker('obstacle_labels', track.id, Marker.TEXT_VIEW_FACING, OBSTACLE_COLOR)
+        label = self._marker('obstacle_labels', track.id, Marker.TEXT_VIEW_FACING, color)
         label.scale.z = self.label_height
         label.pose.position.x = float((x0 + x1) / 2)
         label.pose.position.y = float(y1 + self.label_height + 0.04)
@@ -522,7 +566,36 @@ class RegionVisualization:
         speed = '--' if track.speed is None else f'{track.speed:.2f}'
         # RViz's text renderer can give ASCII spaces an excessive width.
         label.text = f'#{track.id}\n{x1-x0:.2f}x{y1-y0:.2f}\n{speed}m/s'
-        return [box, label]
+        if track.time_to_enter is not None:
+            label.text += f'\nin{track.time_to_enter:.1f}s'
+        markers = [box, label]
+        if len(track.trail) >= 2:
+            trail = self._marker('trails', track.id, Marker.LINE_STRIP, TRAIL_COLOR)
+            trail.scale.x = 0.02
+            trail.points = self._points(list(track.trail))
+            markers.append(trail)
+        if track.entry_point is not None:
+            markers.extend(self._prediction_markers(track))
+        return markers
+
+    def _prediction_markers(self, track: core.Track) -> list[Marker]:
+        # Dashed line from the current centre to the predicted entry point.
+        path = self._marker('predictions', track.id, Marker.LINE_LIST, PREDICTION_COLOR)
+        path.scale.x = 0.02
+        (sx, sy), (ex, ey) = track.center, track.entry_point
+        length = math.dist(track.center, track.entry_point)
+        dashes = max(1, int(length / 0.2))
+        segments = []
+        for k in range(dashes):
+            a, b = k / dashes, (k + 0.5) / dashes
+            segments.append((sx + (ex - sx) * a, sy + (ey - sy) * a))
+            segments.append((sx + (ex - sx) * b, sy + (ey - sy) * b))
+        path.points = self._points(segments)
+        entry = self._marker('entry_points', track.id, Marker.SPHERE, PREDICTION_COLOR)
+        entry.scale.x = entry.scale.y = entry.scale.z = 0.12
+        entry.pose.position.x, entry.pose.position.y = float(ex), float(ey)
+        entry.pose.position.z = 0.03
+        return [path, entry]
 
     def _hit_points(self, clusters: list[list[core.Point2D]]) -> Marker:
         hits = self._marker('hits', 0, Marker.POINTS, (1.0, 0.3, 0.1, 1.0))
