@@ -1,8 +1,9 @@
 <?xml version="1.0"?>
 <launch>
   <!-- Configuration files and optional nodes. -->
+  <!-- This branch targets the GL3; pass params_file:=.../gl5.yaml for a GL5. -->
   <arg name="params_file"
-       default="$(find-pkg-share gl5_driver)/config/gl5.yaml"/>
+       default="$(find-pkg-share gl5_driver)/config/gl3.yaml"/>
   <arg name="rviz" default="true"/>
   <arg name="rviz_config" default="$(find-pkg-share gl5_bringup)/rviz/gl5.rviz"/>
   <arg name="obstacles" default="true"/>
