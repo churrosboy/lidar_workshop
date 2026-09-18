@@ -89,12 +89,14 @@ class RegionPanel : public rviz_common::Panel {
                                                 {"NO_DATA", "No LiDAR data"},
                                                 {"LEARNING", "Learning background - keep area clear"},
                                                 {"CLEAR", "No obstacles in region"},
+                                                {"WARNING", "Obstacle about to enter region"},
                                                 {"OCCUPIED", "Obstacle detected in region"}};
     auto it = labels.find(state);
     status_->setText("Status: " +
                      (it == labels.end() ? QString::fromStdString(state) : it->second));
     status_->setStyleSheet(state == "OCCUPIED" ? "font-weight: bold; color: #bb2222; padding: 5px;"
-                                               : "font-weight: bold; padding: 5px;");
+                           : state == "WARNING" ? "font-weight: bold; color: #c98a00; padding: 5px;"
+                                                : "font-weight: bold; padding: 5px;");
   }
 
   void handleResponse(const std::string& action,

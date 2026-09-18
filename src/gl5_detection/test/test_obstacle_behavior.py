@@ -1,6 +1,10 @@
-"""Replay workshop interactions against outputs captured before refactoring."""
+"""Replay workshop interactions against captured RViz/state outputs.
+
+Set UPDATE_FIXTURES=1 to rewrite the fixtures after an intentional output change.
+"""
 import json
 import math
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -37,8 +41,10 @@ class DetectorHarness(ObstacleNode):
         self.timeout = 1.0
         self.close_radius = 0.15
         self.label_height = 0.14
+        self.predict_horizon, self.predict_step = 3.0, 0.1
+        self.warning_time, self.min_predict_speed = 1.0, 0.1
         self.occupancy_filter = Occupancy(0.2, 0.5)
-        self.tracker = BoxTracker(0.4, 0.5, 0.4)
+        self.tracker = BoxTracker(0.4, 0.5, 0.4, trail_length=60)
         self.box_tracks = []
         self.region, self.draft, self.obstacle_clusters = [], [], []
         self.editing = False
@@ -48,12 +54,14 @@ class DetectorHarness(ObstacleNode):
         self.state = 'NO_REGION'
         self.menu_notice = ''
         self.visualization = RegionVisualization(
-            self.frame, self.label_height, lambda: self.get_clock().now().to_msg()
+            self.frame, self.label_height, lambda: self.get_clock().now().to_msg(),
+            self.warning_time,
         )
         self.marker_pub = Publisher()
         self.region_pub = Publisher()
         self.state_pub = Publisher()
         self.flag_pub = Publisher()
+        self.warning_pub = Publisher()
 
     def get_clock(self):
         return SimpleNamespace(now=lambda: SimpleNamespace(to_msg=lambda: Time(sec=123)))
@@ -74,26 +82,42 @@ def scan(ranges, frame='laser'):
     return message
 
 
-def replay(region_file):
-    node = DetectorHarness(region_file)
-    snapshots = []
+class Recorder:
+    """Drive a harness with a fixed clock and snapshot every published output."""
 
-    def record(name, now):
+    def __init__(self, region_file):
+        self.node = DetectorHarness(region_file)
+        self.region_file = region_file
+        self.snapshots = []
+
+    def record(self, name, now):
+        node = self.node
         with patch('gl5_detection.gl5_obstacle_node.time.monotonic', return_value=now):
             node.update_state_and_publish()
-        snapshots.append({
+        self.snapshots.append({
             'name': name,
             'markers': node.marker_pub.message,
             'polygon': node.region_pub.message,
             'state': node.state_pub.message,
             'detected': node.flag_pub.message,
+            'warning': node.warning_pub.message,
             'draft': node.draft.copy(),
-            'saved': json.loads(region_file.read_text()) if region_file.exists() else None,
+            'saved': (json.loads(self.region_file.read_text())
+                      if self.region_file.exists() else None),
         })
 
-    def receive(ranges, now, frame='laser'):
+    def receive(self, ranges, now, frame='laser'):
         with patch('gl5_detection.gl5_obstacle_node.time.monotonic', return_value=now):
-            node.scan_callback(scan(ranges, frame))
+            self.node.scan_callback(scan(ranges, frame))
+
+    def result(self):
+        # JSON normalizes coordinate tuples just like the checked-in fixture.
+        return json.loads(json.dumps(self.snapshots))
+
+
+def replay(region_file):
+    recorder = Recorder(region_file)
+    node, record, receive = recorder.node, recorder.record, recorder.receive
 
     record('initial', 0.0)
     node.edit()
@@ -137,8 +161,51 @@ def replay(region_file):
     record('clear persists', 3.6)
     node.load()
     record('load empty region', 3.6)
-    # JSON normalizes coordinate tuples just like the checked-in fixture.
-    return json.loads(json.dumps(snapshots))
+    return recorder.result()
+
+
+def replay_prediction(region_file):
+    """An object approaches the region at 1 m/s, enters, turns back and leaves."""
+    recorder = Recorder(region_file)
+    node, record, receive = recorder.node, recorder.record, recorder.receive
+    node.region = [(0.2, -0.5), (2.0, -0.5), (2.0, 0.5), (0.2, 0.5)]
+    node.save()
+
+    def approaching(distance):
+        return [distance] * 5 + [math.inf] * 6
+
+    def step(index, distance):
+        now = 1.0 + index * 0.05
+        receive(approaching(distance), now)
+        return now
+
+    now = step(0, 3.5)
+    record('first sight, no speed yet', now)
+    for index in range(1, 7):  # 3.2 m: still 1.2 s from the region (> 1 s warning)
+        now = step(index, 3.5 - index * 0.05)
+    record('tracked outside, not yet warning', now)
+    for index in range(7, 23):  # 2.4 m: 0.4 s from the region
+        now = step(index, 3.5 - index * 0.05)
+    record('warning: predicted entry', now)
+    for index in range(23, 32):  # crosses x=2.0 at index 30
+        now = step(index, 3.5 - index * 0.05)
+    record('inside, entry pending', now)
+    for index in range(32, 35):
+        now = step(index, 3.5 - index * 0.05)
+    record('occupied', now)
+    for index in range(35, 42):  # turns around and leaves at index 40
+        now = step(index, 1.75 + (index - 34) * 0.05)
+    record('leaving, exit pending', now)
+    receive([math.inf] * 7 + [8.0] * 4, 3.6)  # valid scan, fewer than min_points
+    record('gone, clear', 3.6)
+    return recorder.result()
+
+
+def load_or_update_fixture(name, actual):
+    fixture = Path(__file__).parent / 'fixtures' / name
+    if os.environ.get('UPDATE_FIXTURES'):
+        fixture.write_text(json.dumps(actual, indent=2) + '\n')
+    return json.loads(fixture.read_text())
 
 
 class ObstacleBehaviorTest(unittest.TestCase):
@@ -149,15 +216,38 @@ class ObstacleBehaviorTest(unittest.TestCase):
             json.loads(fixture.read_text()),
         )
 
-    def test_rviz_messages_and_state_match_original(self):
-        fixture = Path(__file__).parent / 'fixtures' / 'obstacle_behavior.json'
-        with tempfile.TemporaryDirectory() as directory:
-            actual = replay(Path(directory) / 'region.json')
-        expected = json.loads(fixture.read_text())
+    def assert_matches_fixture(self, name, actual):
+        expected = load_or_update_fixture(name, actual)
         self.assertEqual(len(actual), len(expected))
         for result, original in zip(actual, expected):
             with self.subTest(state=original['name']):
                 self.assertEqual(result, original)
+
+    def test_rviz_messages_and_state_match_original(self):
+        with tempfile.TemporaryDirectory() as directory:
+            actual = replay(Path(directory) / 'region.json')
+        self.assert_matches_fixture('obstacle_behavior.json', actual)
+
+    def test_prediction_scenario(self):
+        with tempfile.TemporaryDirectory() as directory:
+            actual = replay_prediction(Path(directory) / 'region.json')
+        states = [(s['state']['data'], s['detected']['data'], s['warning']['data'])
+                  for s in actual]
+        self.assertEqual(states, [
+            ('CLEAR', False, False), ('CLEAR', False, False), ('WARNING', False, True),
+            ('WARNING', False, True), ('OCCUPIED', True, True), ('OCCUPIED', True, True),
+            ('CLEAR', False, False),
+        ])
+        by_ns = lambda snapshot, ns: [m for m in snapshot['markers']['markers'] if m['ns'] == ns]
+        warning = actual[2]
+        self.assertEqual(len(by_ns(warning, 'predictions')), 1)
+        self.assertEqual(len(by_ns(warning, 'entry_points')), 1)
+        self.assertEqual(len(by_ns(warning, 'trails')), 1)
+        self.assertIn('in', by_ns(warning, 'obstacle_labels')[0]['text'])
+        self.assertAlmostEqual(by_ns(warning, 'entry_points')[0]['pose']['position']['x'], 2.0, 1)
+        self.assertEqual(by_ns(actual[4], 'predictions'), [])  # inside: no prediction
+        self.assertEqual(by_ns(actual[5], 'predictions'), [])  # receding: no prediction
+        self.assert_matches_fixture('prediction_behavior.json', actual)
 
     def test_failed_save_preserves_applied_region_and_draft(self):
         with tempfile.TemporaryDirectory() as directory:
