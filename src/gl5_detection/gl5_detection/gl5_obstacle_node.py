@@ -27,7 +27,7 @@ from gl5_detection import detection_core as core
 
 # 스캔을 받아 감지 코어를 돌리고 결과를 ROS/RViz로 내보내는 노드
 class ObstacleNode(Node):
-    # 파라미터, 상태, 토픽/서비스, 메뉴를 준비하고 저장된 영역을 불러온다
+    # 파라미터, 상태, 토픽/서비스, 메뉴 준비 및 저장된 영역 불러오기
     def __init__(self):
         super().__init__('gl5_obstacle_detector')
         self.configure_parameters()
@@ -80,7 +80,7 @@ class ObstacleNode(Node):
         )
         self.occupancy_filter.update(any(track.in_region for track in self.box_tracks), now)
 
-    # 프레임, 각도, 거리 메타데이터와 유효 반사 존재 여부를 검사한다
+    # 프레임, 각도, 거리 메타데이터와 유효 반사 존재 여부 검사
     def is_valid_scan(self, msg: LaserScan) -> bool:
         if msg.header.frame_id != self.frame or len(msg.ranges) < 2:
             return False
@@ -94,7 +94,7 @@ class ObstacleNode(Node):
             for distance in msg.ranges
         )
 
-    # 0.1초마다 상태(EDITING/NO_REGION/NO_DATA/LEARNING/OCCUPIED/WARNING/CLEAR)를 정하고 발행한다
+    # 0.1초마다 상태(EDITING/NO_REGION/NO_DATA/LEARNING/OCCUPIED/WARNING/CLEAR) 결정과 발행
     def update_state_and_publish(self) -> None:
         if self.editing:
             self.state = 'EDITING'
@@ -118,20 +118,20 @@ class ObstacleNode(Node):
         return [track for track in self.box_tracks if track.in_region or (
             track.time_to_enter is not None and track.time_to_enter <= self.warning_time)]
 
-    # 군집, 추적, 점유 판정을 모두 초기화한다
+    # 군집, 추적, 점유 판정 초기화
     def clear_detection_results(self) -> None:
         self.obstacle_clusters = []
         self.box_tracks = []
         self.tracker.reset()
         self.occupancy_filter.reset()
 
-    # 감지 결과와 마지막 수신 시각까지 초기화한다
+    # 감지 결과와 마지막 수신 시각 초기화
     def reset_detection(self) -> None:
         self.clear_detection_results()
         self.last_valid_scan_time = None
 
 
-    # 마커, 상태, 영역 폴리곤을 한 번에 발행한다
+    # 마커, 상태, 영역 폴리곤 일괄 발행
     def publish_outputs(self) -> None:
         self.publish_obstacle_markers()
         self.publish_detection_state()
@@ -144,15 +144,15 @@ class ObstacleNode(Node):
             return self.background.pose
         return np.eye(3)
 
-    # 지도 좌표계 점들을 현재 센서 좌표계로 옮긴다
+    # 지도 좌표계 → 현재 센서 좌표계 변환
     def to_laser(self, points: list[core.Point2D]) -> list[core.Point2D]:
         return core.transform_points(np.linalg.inv(self.anchor_from_laser()), points)
 
-    # 센서 좌표계 점들을 지도 좌표계로 옮긴다
+    # 센서 좌표계 → 지도 좌표계 변환
     def to_anchor(self, points: list[core.Point2D]) -> list[core.Point2D]:
         return core.transform_points(self.anchor_from_laser(), points)
 
-    # 영역, 배경, 박스, 궤적, 예측선을 MarkerArray로 발행한다
+    # 영역, 배경, 박스, 궤적, 예측선 MarkerArray 발행
     def publish_obstacle_markers(self) -> None:
         vertices = self.to_laser(self.draft if self.editing else self.region)
         background = []
@@ -164,24 +164,24 @@ class ObstacleNode(Node):
         )
         self.marker_pub.publish(markers)
 
-    # 상태 문자열과 감지/경고 Bool을 발행한다
+    # 상태 문자열과 감지/경고 Bool 발행
     def publish_detection_state(self) -> None:
         self.state_pub.publish(String(data=self.state))
         self.flag_pub.publish(Bool(data=self.state == 'OCCUPIED'))
         self.warning_pub.publish(Bool(data=self.state in ('WARNING', 'OCCUPIED')))
 
-    # 현재 영역을 센서 좌표계 PolygonStamped로 발행한다
+    # 현재 영역을 센서 좌표계 PolygonStamped로 발행
     def publish_region(self) -> None:
         self.region_pub.publish(make_region_polygon(
             self.frame, self.get_clock().now().to_msg(), self.to_laser(self.region)
         ))
 
 
-    # 모든 파라미터를 읽고 점유 필터, 추적기, 배경 모델, 시각화 객체를 만든다
+    # 파라미터 읽기와 점유 필터, 추적기, 배경 모델, 시각화 객체 생성
     def configure_parameters(self) -> None:
         descriptor = ParameterDescriptor(read_only=True)
 
-        # 읽기 전용 파라미터 하나를 선언하고 값을 돌려준다
+        # 읽기 전용 파라미터 선언과 값 반환
         def param(name, default):
             return self.declare_parameter(name, default, descriptor).value
 
@@ -223,7 +223,7 @@ class ObstacleNode(Node):
             self.warning_time,
         )
 
-    # 파라미터 값이 범위 안인지 검사한다
+    # 파라미터 범위 검사
     def validate_parameters(self, match_distance, max_age, speed_window, enter, leave) -> None:
         if not self.frame or self.min_points < 1:
             raise ValueError('Invalid detector parameters')
@@ -238,7 +238,7 @@ class ObstacleNode(Node):
         if not math.isfinite(speed_window) or speed_window < 0.2:
             raise ValueError('Invalid detector parameters')
 
-    # 영역, 초안, 추적, 상태 변수를 초기화한다
+    # 영역, 초안, 추적, 상태 변수 초기화
     def initialize_state(self) -> None:
         self.box_tracks: list[core.Track] = []
         self.region: list[core.Point2D] = []
@@ -249,7 +249,7 @@ class ObstacleNode(Node):
         self.state = 'NO_REGION'
         self.menu_notice = ''
 
-    # 퍼블리셔, 서브스크라이버, /gl5/region/* 서비스를 만든다
+    # 퍼블리셔, 서브스크라이버, /gl5/region/* 서비스 생성
     def create_ros_interfaces(self) -> None:
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.marker_pub = self.create_publisher(MarkerArray, '/gl5/obstacle_markers', qos)
@@ -270,7 +270,7 @@ class ObstacleNode(Node):
         ]
 
 
-    # RViz 클릭 점을 지도 좌표로 바꿔 초안 꼭짓점에 추가하거나 영역을 닫는다
+    # RViz 클릭 점을 지도 좌표로 변환해 초안 꼭짓점 추가 또는 영역 닫기
     def clicked_point_callback(self, msg: PointStamped) -> None:
         if msg.header.frame_id != self.frame:
             self.get_logger().warning(f'Click rejected: RViz Fixed Frame must be {self.frame}')
@@ -298,21 +298,21 @@ class ObstacleNode(Node):
             self.get_logger().warning(str(exc))
         self.update_state_and_publish()
 
-    # 영역 편집을 시작한다
+    # 영역 편집 시작
     def edit(self):
         self.draft = []
         self.editing = True
         self.reset_detection()
         return 'Editing: click perimeter vertices in RViz; click first vertex to finish'
 
-    # 초안의 마지막 꼭짓점을 지운다
+    # 초안 마지막 꼭짓점 삭제
     def undo(self):
         if not self.editing or not self.draft:
             raise ValueError('No draft vertex to undo')
         self.draft.pop()
         return f'{len(self.draft)} draft vertices'
 
-    # 초안을 검증하고 저장한 뒤 영역으로 확정한다
+    # 초안 검증·저장 후 영역 확정
     def finish(self):
         if not self.editing:
             raise ValueError('Not editing')
@@ -324,14 +324,14 @@ class ObstacleNode(Node):
         self.reset_detection()
         return f'Region applied and saved: {self.region_file}'
 
-    # 편집을 취소하고 이전 영역으로 돌아간다
+    # 편집 취소, 이전 영역 복원
     def cancel(self):
         self.draft = []
         self.editing = False
         self.reset_detection()
         return 'Editing cancelled; previous region restored'
 
-    # 영역과 저장 파일을 비운다
+    # 영역과 저장 파일 비우기
     def clear(self):
         self.write_region([])
         self.region = []
@@ -340,14 +340,14 @@ class ObstacleNode(Node):
         self.reset_detection()
         return 'Region cleared and saved'
 
-    # 현재 영역을 파일에 저장한다
+    # 현재 영역 파일 저장
     def save(self):
         if self.editing:
             raise ValueError('Finish or cancel editing before saving')
         self.write_region(self.region)
         return f'Saved {self.region_file}'
 
-    # 파일에서 영역을 불러온다
+    # 파일에서 영역 불러오기
     def load(self):
         candidate = read_region(self.region_file, self.frame)
         self.region = candidate
@@ -356,12 +356,12 @@ class ObstacleNode(Node):
         self.reset_detection()
         return f'Loaded {self.region_file}'
 
-    # 영역을 파일에 원자적으로 쓴다
+    # 영역 파일 원자적 쓰기
     def write_region(self, region: list[core.Point2D]) -> None:
         write_region(self.region_file, self.frame, region)
 
 
-    # 영역을 현재 센서 좌표계로 옮기고 배경 지도를 다시 학습한다
+    # 영역을 현재 센서 좌표계로 이동 후 배경 지도 재학습
     def learn_background(self):
         if self.background is None:
             raise ValueError('Background subtraction is disabled (background_enabled=false)')
@@ -373,7 +373,7 @@ class ObstacleNode(Node):
                 'keep the area clear and the sensor still')
 
 
-    # RViz 우클릭 메뉴(인터랙티브 마커)를 만든다
+    # RViz 우클릭 메뉴(인터랙티브 마커) 생성
     def setup_menu(self):
         self.menu_server = InteractiveMarkerServer(self, '/gl5/region_menu')
         self.menu_handler = MenuHandler()
@@ -390,9 +390,9 @@ class ObstacleNode(Node):
         self.menu_handler.apply(self.menu_server, menu.name)
         self.menu_server.applyChanges()
 
-    # 메뉴 항목이 실행할 콜백을 만든다
+    # 메뉴 항목 콜백 생성
     def make_menu_callback(self, action):
-        # 동작을 실행하고 결과를 로그와 상태로 반영한다
+        # 동작 실행 후 로그와 상태 반영
         def callback(feedback):
             try:
                 message = action()
@@ -404,9 +404,9 @@ class ObstacleNode(Node):
             self.update_state_and_publish()
         return callback
 
-    # Trigger 서비스가 실행할 콜백을 만든다
+    # Trigger 서비스 콜백 생성
     def make_service_callback(self, action):
-        # 동작을 실행하고 성공 여부와 메시지를 응답에 담는다
+        # 동작 실행 후 성공 여부와 메시지 응답
         def callback(request, response):
             try:
                 response.message = action()
@@ -419,7 +419,7 @@ class ObstacleNode(Node):
         return callback
 
 
-# 영역 JSON 파일을 읽어 검증된 꼭짓점 목록을 돌려준다
+# 영역 JSON 파일 읽기와 꼭짓점 검증
 def read_region(path: Path, frame_id: str) -> list[core.Point2D]:
     data = json.loads(path.read_text())
     if data['version'] != 1 or data['frame_id'] != frame_id:
@@ -428,7 +428,7 @@ def read_region(path: Path, frame_id: str) -> list[core.Point2D]:
     return [] if vertices == [] else core.validate_polygon(vertices)
 
 
-# 영역을 임시 파일에 쓴 뒤 교체해 파일 손상을 막는다
+# 임시 파일 쓰기 후 교체로 파일 손상 방지
 def write_region(path: Path, frame_id: str, vertices: list[core.Point2D]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     filename = None
@@ -468,7 +468,7 @@ PREDICTION_COLOR = (1.0, 0.8, 0.1, 0.9)
 BACKGROUND_COLOR = (0.55, 0.55, 0.6, 0.8)
 
 
-# 메뉴용 인터랙티브 마커를 만든다
+# 메뉴용 인터랙티브 마커 생성
 def make_region_menu(frame_id: str) -> InteractiveMarker:
     menu = InteractiveMarker()
     menu.header.frame_id = frame_id
@@ -494,7 +494,7 @@ def make_region_menu(frame_id: str) -> InteractiveMarker:
     return menu
 
 
-# 꼭짓점 목록을 PolygonStamped로 만든다
+# 꼭짓점 목록 → PolygonStamped
 def make_region_polygon(
     frame_id: str, stamp: Time, region: list[core.Point2D]
 ) -> PolygonStamped:
@@ -509,7 +509,7 @@ def make_region_polygon(
 
 # RViz 마커 생성 담당
 class RegionVisualization:
-    # 프레임, 라벨 높이, 시각 함수, 경고 시간을 저장한다
+    # 프레임, 라벨 높이, 시각 함수, 경고 시간 저장
     def __init__(self, frame_id: str, label_height: float, timestamp: Callable[[], Time],
                  warning_time: float = 2.0):
         self.frame_id = frame_id
@@ -517,7 +517,7 @@ class RegionVisualization:
         self.timestamp = timestamp
         self.warning_time = warning_time
 
-    # 한 주기의 모든 마커(DELETEALL 포함)를 조립한다
+    # 한 주기의 전체 마커(DELETEALL 포함) 조립
     def build_markers(
         self,
         state: str,
@@ -537,7 +537,7 @@ class RegionVisualization:
         markers.append(self._hit_points(clusters))
         return MarkerArray(markers=markers)
 
-    # 프레임, 시각, 네임스페이스, 색이 채워진 빈 마커를 만든다
+    # 프레임, 시각, 네임스페이스, 색이 채워진 빈 마커 생성
     def _marker(self, namespace, identifier, kind, color) -> Marker:
         marker = Marker()
         marker.header.frame_id = self.frame_id
@@ -550,11 +550,11 @@ class RegionVisualization:
         return marker
 
     @staticmethod
-    # (x, y) 목록을 z=0.03인 Point 목록으로 바꾼다
+    # (x, y) 목록 → z=0.03인 Point 목록
     def _points(coordinates: list[core.Point2D]) -> list[Point]:
         return [Point(x=float(x), y=float(y), z=0.03) for x, y in coordinates]
 
-    # 클릭이 가능하도록 바닥에 깔아 두는 투명 판
+    # 클릭용 바닥 투명 판
     def _selection_surface(self) -> Marker:
         floor = self._marker('selection_surface', 0, Marker.CUBE, (0.2, 0.3, 0.4, 0.12))
         floor.pose.position.z = -0.08
@@ -579,7 +579,7 @@ class RegionVisualization:
         dots.points = self._points(vertices)
         return [line, dots]
 
-    # 추적이 영역 안인지, 진입 예정인지, 그 외인지 판정한다
+    # 추적 상태 판정 (영역 안 / 진입 예정 / 그 외)
     def _track_status(self, track: core.Track) -> str:
         if track.in_region:
             return 'inside'
@@ -640,7 +640,7 @@ class RegionVisualization:
         hits.points = self._points([point for cluster in clusters for point in cluster])
         return hits
 
-# 노드를 만들고 종료될 때까지 돌린다
+# 노드 생성과 실행
 def main():
     rclpy.init()
     node = None

@@ -7,7 +7,7 @@ warnings.filterwarnings('ignore', message='A NumPy version')
 from scipy.spatial import cKDTree
 
 
-# 유효 빔을 xy 점으로 바꾸고 stride마다 하나만 남긴다
+# 유효 빔 → xy 점 변환, stride마다 하나만 유지
 def scan_to_points(ranges, angle_min, angle_increment, min_range=0.1, max_range=30.0,
                    stride=1) -> np.ndarray:
     distances = np.asarray(ranges, dtype=float)
@@ -30,20 +30,20 @@ def to_pose(transform: np.ndarray) -> tuple[float, float, float]:
             math.atan2(transform[1, 0], transform[0, 0]))
 
 
-# 변환을 점 배열에 적용한다
+# 점 배열에 변환 적용
 def apply(transform: np.ndarray, points: np.ndarray) -> np.ndarray:
     return points @ transform[:2, :2].T + transform[:2, 2]
 
 
-# 정합 대상 점군: KD 트리와 점별 직선 법선을 한 번만 계산해 둔다
+# 정합 대상 점군: KD 트리와 점별 직선 법선을 한 번만 계산
 class Target:
-    # 점군에서 KD 트리와 법선을 만든다
+    # 점군의 KD 트리와 법선 생성
     def __init__(self, points: np.ndarray, neighbours=8):
         self.points = np.asarray(points, dtype=float)
         self.tree = cKDTree(self.points)
         self.normals = self._normals(min(neighbours, len(self.points)))
 
-    # 이웃 k개의 공분산에서 가장 작은 고유벡터를 법선으로 쓴다
+    # 이웃 k개 공분산의 최소 고유벡터를 법선으로 사용
     def _normals(self, k: int) -> np.ndarray:
         if k < 3:
             return np.zeros_like(self.points)
@@ -59,7 +59,7 @@ MAX_STEP_M = 1.0
 MAX_STEP_RAD = math.radians(45)
 
 
-# 점-대-선 ICP: src를 dst에 맞추는 변환과 대응 비율(fitness)을 돌려준다
+# 점-대-선 ICP: src를 dst에 맞추는 변환과 대응 비율(fitness) 반환
 def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=1e-4,
         min_pairs=10) -> tuple[np.ndarray, float]:
     target = dst if isinstance(dst, Target) else Target(dst)
