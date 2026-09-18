@@ -1,11 +1,3 @@
-"""Obstacle detection algorithms, independent of ROS, RViz and file storage.
-
-BackgroundModel: learn a background point map; returns off the map are foreground.
-cluster_scan(): turn laser ranges into clusters (inside a polygon, or the whole scan).
-BoxTracker: associate cluster boxes across scans, keep a trail and estimate speed.
-predict_entry()/classify_tracks(): extrapolate tracks and find when they enter the region.
-Occupancy: debounce detection into an occupied/clear decision.
-"""
 from collections import deque
 from dataclasses import dataclass, field, replace
 import math
@@ -15,8 +7,6 @@ import numpy as np
 
 from gl5_localization import icp
 
-
-# Geometry, scan clustering and occupancy
 
 Point2D = tuple[float, float]
 BoundingBox = tuple[float, float, float, float]
@@ -64,7 +54,6 @@ def validate_polygon(vertices) -> list[Point2D]:
 
 
 def inside(point: Point2D, polygon: list[Point2D]) -> bool:
-    """Ray casting; includes the boundary, supports concave polygons."""
     result = False
     for a, b in zip(polygon, polygon[1:] + polygon[:1]):
         if on_segment(a, b, point):
@@ -77,18 +66,6 @@ def inside(point: Point2D, polygon: list[Point2D]) -> bool:
 
 
 class BackgroundModel:
-    """Background as a point map; returns that are not on the map are foreground.
-
-    Learning accumulates a burst of scans and takes the per-beam median (a person
-    walking through is ignored), then keeps the finite beams as map points in the
-    sensor frame at learning time. Afterwards every scan is aligned to that map with
-    ICP, so the sensor may rotate or shift a little without the walls turning into
-    obstacles. A return is foreground when its aligned position is farther than
-    margin + ratio * range from every map point, whether closer or farther than the
-    old surface. If alignment fails (fitness too low or an implausible jump) the last
-    pose is kept and `aligned` turns False; a relearn is needed after moving far.
-    """
-
     def __init__(self, learn_frames=80, margin=0.15, ratio=0.02, min_fitness=0.5,
                  max_step=0.15, max_turn=math.radians(15), stride=3):
         if learn_frames < 1 or not all(math.isfinite(v) and v >= 0 for v in (margin, ratio)):
@@ -99,8 +76,8 @@ class BackgroundModel:
         self.stride = max(1, int(stride))
         self.map_points = None
         self.target = None
-        self.map_sector = (-math.pi, math.pi)  # angles the map covers, in the map frame
-        self.pose = np.eye(3)      # map <- current sensor frame
+        self.map_sector = (-math.pi, math.pi)
+        self.pose = np.eye(3)
         self.fitness = 0.0
         self.aligned = False
         self.samples: list[np.ndarray] = []
@@ -123,14 +100,12 @@ class BackgroundModel:
 
     @staticmethod
     def _points(ranges, angle_min, angle_increment):
-        """(indices, points) of the valid beams."""
         frame = np.asarray(ranges, dtype=float)
         index = np.nonzero(np.isfinite(frame) & (frame > 0))[0]
         angles = angle_min + index * angle_increment
         return index, np.column_stack((frame[index] * np.cos(angles), frame[index] * np.sin(angles)))
 
     def observe(self, ranges, angle_min, angle_increment) -> bool:
-        """Accumulate one scan while learning; True when the map just became ready."""
         if not self.learning:
             return False
         frame = np.asarray(ranges, dtype=float)
@@ -142,7 +117,7 @@ class BackgroundModel:
             return False
         stack = np.stack(self.samples)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', RuntimeWarning)  # all-NaN beams are open space
+            warnings.simplefilter('ignore', RuntimeWarning)
             median = np.nanmedian(stack, axis=0)
         mostly_open = np.sum(np.isfinite(stack), axis=0) * 2 < len(stack)
         background = np.where(np.isnan(median) | mostly_open, np.inf, median)
@@ -155,7 +130,6 @@ class BackgroundModel:
         return True
 
     def foreground(self, ranges, angle_min, angle_increment) -> list[float]:
-        """Ranges with background beams set to inf; passthrough until the map is ready."""
         if not self.ready:
             return list(ranges)
         index, points = self._points(ranges, angle_min, angle_increment)
@@ -166,7 +140,6 @@ class BackgroundModel:
         distance, _ = self.target.tree.query(aligned)
         frame = np.asarray(ranges, dtype=float)
         keep = distance > self.margin + self.ratio * frame[index]
-        # Directions the map never saw (revealed by a rotation) are unknown, not foreground.
         heading = np.arctan2(aligned[:, 1], aligned[:, 0])
         low, high = self.map_sector
         keep &= (heading >= low + 0.02) & (heading <= high - 0.02)
@@ -185,7 +158,6 @@ class BackgroundModel:
         self.aligned = ok
 
     def contour(self, stride=5) -> list[Point2D]:
-        """Map points expressed in the current sensor frame, for visualization."""
         if not self.ready:
             return []
         shown = icp.apply(np.linalg.inv(self.pose), self.map_points[::max(1, int(stride))])
@@ -193,7 +165,6 @@ class BackgroundModel:
 
 
 def transform_points(transform, points) -> list[Point2D]:
-    """Apply a 3x3 homogeneous transform to a list of (x, y) points."""
     if not points:
         return []
     moved = icp.apply(np.asarray(transform, dtype=float), np.asarray(points, dtype=float))
@@ -202,11 +173,6 @@ def transform_points(transform, points) -> list[Point2D]:
 
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,
              min_points=5, max_gap=0.15) -> list[list[Point2D]]:
-    """Cluster nearby returns, skipping invalid beams.
-
-    With a polygon only in-ROI returns are kept and outside beams break a cluster;
-    with polygon=None the whole scan is clustered (region checks happen per track).
-    """
     groups, current = [], []
     def flush():
         if len(current) >= min_points:
@@ -233,8 +199,6 @@ def bounds(points: list[Point2D]) -> BoundingBox:
 
 
 class Occupancy:
-    """Require a continuous detection/clear interval before changing occupancy."""
-
     def __init__(self, enter=0.2, leave=0.5):
         self.enter, self.leave = enter, leave
         self.reset()
@@ -256,9 +220,6 @@ class Occupancy:
         return self.occupied
 
 
-# Obstacle association and sensor-relative speed
-
-# A longer observation gap invalidates the old velocity estimate.
 SPEED_RESET_GAP = 0.2
 MIN_SPEED_SAMPLES = 3
 MIN_SPEED_DURATION = 0.15
@@ -273,9 +234,7 @@ class Track:
     history: deque[tuple[float, float, float]] = field(default_factory=deque)
     velocity: Point2D = (0.0, 0.0)
     speed: float | None = None
-    # Past centers for drawing; length is BoxTracker(trail_length).
     trail: deque[Point2D] = field(default_factory=deque)
-    # Filled by classify_tracks() once a region is known.
     in_region: bool = False
     time_to_enter: float | None = None
     entry_point: Point2D | None = None
@@ -291,7 +250,6 @@ class BoxTracker:
         self.tracks: dict[int, Track] = {}
 
     def reset(self) -> None:
-        # IDs remain monotonic across resets, as they do across expired tracks.
         self.tracks.clear()
 
     def update(self, groups: list[list[Point2D]], now: float) -> list[Track]:
@@ -318,8 +276,6 @@ class BoxTracker:
             track.last_seen = now
             track.box = boxes[index]
             track.trail.append(center)
-            # Copy the observation so later updates do not change its box/speed.
-            # The trail is snapshotted as a list for the same reason.
             visible.append(replace(track, trail=deque(track.trail, maxlen=self.trail_length)))
         return visible
 
@@ -343,7 +299,6 @@ class BoxTracker:
 
         used_tracks = set()
         assignments = {}
-        # Keep distance, track ID and detection index as the original tie breakers.
         for _, key, index in sorted(candidates):
             if key not in used_tracks and index not in assignments:
                 used_tracks.add(key)
@@ -362,7 +317,6 @@ class BoxTracker:
                 and history[-1][0] - history[0][0] >= MIN_SPEED_DURATION):
             return
 
-        # Regression over a short window reduces frame-to-frame range noise.
         times = [sample[0] - history[0][0] for sample in history]
         mean_time = sum(times) / len(times)
         denominator = sum((time - mean_time) ** 2 for time in times)
@@ -377,15 +331,8 @@ class BoxTracker:
         track.speed = math.hypot(*velocities)
 
 
-# Region entry prediction
-
 def predict_entry(center: Point2D, velocity: Point2D, polygon: list[Point2D],
                   horizon=3.0, step=0.1, min_speed=0.1) -> tuple[float, Point2D] | None:
-    """Constant-velocity extrapolation: (seconds until entering polygon, entry point).
-
-    None when the object is too slow to predict, already inside, or does not enter
-    within the horizon.
-    """
     if math.hypot(*velocity) < min_speed or inside(center, polygon):
         return None
     steps = int(round(horizon / step))
@@ -399,7 +346,6 @@ def predict_entry(center: Point2D, velocity: Point2D, polygon: list[Point2D],
 
 def classify_tracks(tracks: list[Track], polygon: list[Point2D],
                     horizon=3.0, step=0.1, min_speed=0.1) -> list[Track]:
-    """Set in_region and the entry prediction on each track (in place) and return them."""
     for track in tracks:
         track.in_region = inside(track.center, polygon)
         prediction = None if track.in_region else predict_entry(
