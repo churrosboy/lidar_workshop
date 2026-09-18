@@ -82,20 +82,8 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         p = current[matched]
         q = target.points[neighbours[matched]]
         n = target.normals[neighbours[matched]]
-        # ===== [4단계 실습] 점-대-선 ICP 한 반복을 채우세요 =====
-        # 주어진 것: p = 현재 스캔 점 (M, 2), q = 대응되는 지도 점 (M, 2), n = q에서의 직선 법선 (M, 2)
-        # 목표: p를 (dx, dy)만큼 옮기고 dtheta만큼 돌렸을 때 n·(p' - q) 가 최소가 되는 (dx, dy, dtheta)
-        # 회전을 작다고 보고 선형화하면 R p ≈ p + dtheta * (-p_y, p_x) 이므로 잔차는
-        #   n·(p - q) + n_x*dx + n_y*dy + dtheta*(n_x*(-p_y) + n_y*p_x)
-        # 순서:
-        #  1. jacobian = np.column_stack((n_x, n_y, n_x*(-p_y) + n_y*p_x))   # (M, 3)
-        #  2. residual = n·(q - p) 를 점마다 계산 (np.einsum('ij,ij->i', n, q - p))
-        #  3. (dx, dy, dtheta), *_ = np.linalg.lstsq(jacobian, residual, rcond=1e-6)
-        #  4. 발산 검사: 값이 유한하지 않거나 hypot(dx, dy) > MAX_STEP_M 또는 |dtheta| > MAX_STEP_RAD
-        #     이면 return initial, 0.0
-        #  5. step = make_transform(dx, dy, dtheta); transform = step @ transform; current = apply(step, current)
-        #  6. hypot(dx, dy) < tolerance 이고 |dtheta| < tolerance 이면 break (수렴)
-        # 채점: pytest test/test_icp.py   (gl5_localization 폴더에서)
-        raise NotImplementedError('4단계: icp 반복 스텝을 채우세요')
+        # =======Insert Your Code=======
+        raise NotImplementedError('4단계 icp')
+        # =======Insert Your Code=======
     matched, _ = matches()
     return transform, float(matched.mean())
