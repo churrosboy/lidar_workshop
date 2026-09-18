@@ -102,3 +102,24 @@ docker stop lidar-workshop
 | `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
 | `gl5_rviz_plugins` | RViz 영역 설정 패널 |
 | `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
+
+## 실습 단계 (windows_practice 브랜치)
+
+이 브랜치는 네 함수의 본문이 비어 있습니다. 각 단계에서 원리를 설명한 뒤 함수를 채우고, 테스트로 확인하고, 실행해 봅니다.
+비어 있는 함수는 `raise NotImplementedError`로 표시되어 있고, 채우기 전에는 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다.
+완성본은 `windows` 브랜치에 있습니다.
+
+| 단계 | 주제 | 채우는 함수 | 채점 | 실행 |
+|---|---|---|---|---|
+| 1 | 군집화 | `src/gl5_detection/gl5_detection/detection_core.py` → `cluster_scan` | `pytest test/test_clustering.py test/test_roi_geometry.py` | `GL5_OBSTACLE_PARAMS_FILE=.../config/obstacles_step1.yaml bash scripts/run.sh scan_matcher:=false` |
+| 2 | 배경 차분 | `src/gl5_detection/gl5_detection/background.py` → `BackgroundModel.foreground` | `pytest test/test_background.py` | `GL5_OBSTACLE_PARAMS_FILE=.../config/obstacles_step2.yaml bash scripts/run.sh scan_matcher:=false` |
+| 3 | 진입 예측 | `src/gl5_detection/gl5_detection/prediction.py` → `predict_entry` | `pytest test/test_prediction.py` | `bash scripts/run.sh scan_matcher:=false` |
+| 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `pytest test/test_icp.py` | `bash scripts/run.sh rviz_config:=.../rviz/gl5_odom.rviz` |
+
+테스트는 해당 패키지 폴더(`src/gl5_detection` 또는 `src/gl5_localization`)에서 `source /opt/ros/humble/setup.bash` 후 실행합니다.
+Docker 환경에서는 `docker exec -it lidar-workshop /ros_entrypoint.sh bash -c "cd src/gl5_detection && python3 -m pytest test/test_clustering.py"` 처럼 실행합니다.
+파이썬 파일을 고친 뒤 노드에 반영하려면 `bash scripts/build.sh`를 다시 실행합니다.
+
+기대 결과: 1단계에서는 영역 안 물체에 빨간 박스, 밖은 초록. 2단계에서는 벽·고정물이 회색 배경이 되어 박스가 사라지고 새로 놓은 물체만 잡힘.
+3단계에서는 영역 밖에서 걸어 들어올 때 초록 → 노랑(점선 예측, `in1.3s`) → 빨강. 4단계에서는 센서를 들고 움직이면 주황색 경로와 누적 스캔이 그려지고,
+2단계 배경도 센서 회전을 따라가게 됩니다.
