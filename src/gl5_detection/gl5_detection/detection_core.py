@@ -1,5 +1,6 @@
 """Obstacle detection algorithms, independent of ROS, RViz and file storage.
 
+BackgroundModel: learn the free-space distance per beam and keep only closer returns.
 cluster_scan(): turn laser ranges into clusters inside the selected polygon.
 BoxTracker: associate cluster boxes across scans and estimate relative speed.
 Occupancy: debounce detection into an occupied/clear decision.
@@ -7,6 +8,9 @@ Occupancy: debounce detection into an occupied/clear decision.
 from collections import deque
 from dataclasses import dataclass, field, replace
 import math
+import warnings
+
+import numpy as np
 
 
 # Geometry, scan clustering and occupancy
@@ -67,6 +71,95 @@ def inside(point: Point2D, polygon: list[Point2D]) -> bool:
             if point[0] < x:
                 result = not result
     return result
+
+
+class BackgroundModel:
+    """Per-beam free-space distance learned from a burst of scans.
+
+    While learning, observe() accumulates frames; the per-beam median makes a person
+    walking through during learning harmless. Afterwards foreground() keeps only beams
+    that return clearly closer than the background (margin + ratio * distance).
+    A beam whose background is inf (no return, open space) is foreground whenever it
+    returns anything. If the beam count changes (different sensor), learning restarts.
+    """
+
+    def __init__(self, learn_frames=80, margin=0.15, ratio=0.02):
+        if learn_frames < 1 or not all(math.isfinite(v) and v >= 0 for v in (margin, ratio)):
+            raise ValueError('Invalid background parameters')
+        self.learn_frames = int(learn_frames)
+        self.margin = float(margin)
+        self.ratio = float(ratio)
+        self.background = None
+        self.samples: list[np.ndarray] = []
+        self.learning = False
+
+    @property
+    def ready(self) -> bool:
+        return self.background is not None
+
+    def start_learning(self) -> None:
+        self.samples = []
+        self.learning = True
+
+    def reset(self) -> None:
+        self.background = None
+        self.samples = []
+        self.learning = False
+
+    @staticmethod
+    def _frame(ranges) -> np.ndarray:
+        frame = np.asarray(ranges, dtype=float)
+        return np.where(np.isfinite(frame) & (frame > 0), frame, np.nan)
+
+    def observe(self, ranges) -> bool:
+        """Accumulate one scan while learning; True when the model just became ready."""
+        if not self.learning:
+            return False
+        frame = self._frame(ranges)
+        if self.samples and len(frame) != len(self.samples[0]):
+            self.samples = []
+        self.samples.append(frame)
+        if len(self.samples) < self.learn_frames:
+            return False
+        stack = np.stack(self.samples)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)  # all-NaN beams are open space
+            median = np.nanmedian(stack, axis=0)
+        # A beam without a return in most frames is open space, even if something
+        # passed through it briefly while learning.
+        mostly_open = np.sum(np.isfinite(stack), axis=0) * 2 < len(stack)
+        self.background = np.where(np.isnan(median) | mostly_open, np.inf, median)
+        self.samples = []
+        self.learning = False
+        return True
+
+    def foreground(self, ranges) -> list[float]:
+        """Return ranges with background beams set to inf; passthrough until ready."""
+        if self.background is None:
+            return list(ranges)
+        frame = np.asarray(ranges, dtype=float)
+        if len(frame) != len(self.background):
+            self.reset()
+            self.start_learning()
+            return list(ranges)
+        finite = np.isfinite(self.background)
+        threshold = np.full_like(self.background, np.inf)
+        threshold[finite] = self.background[finite] * (1.0 - self.ratio) - self.margin
+        keep = np.isfinite(frame) & (frame > 0) & (frame < threshold)
+        return np.where(keep, frame, np.inf).tolist()
+
+    def contour(self, angle_min, angle_increment, stride=5) -> list[Point2D]:
+        """Sampled background outline in sensor coordinates, for visualization."""
+        if self.background is None:
+            return []
+        points = []
+        for index in range(0, len(self.background), max(1, int(stride))):
+            distance = self.background[index]
+            if not math.isfinite(distance):
+                continue
+            angle = angle_min + index * angle_increment
+            points.append((float(distance * math.cos(angle)), float(distance * math.sin(angle))))
+        return points
 
 
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,

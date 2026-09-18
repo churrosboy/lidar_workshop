@@ -56,7 +56,8 @@ class RegionPanel : public rviz_common::Panel {
     status_->setStyleSheet("font-weight: bold; padding: 5px;");
     layout->addWidget(status_);
     auto* help = new QLabel(
-        "Draw Region: click vertices, then Finish Region.\nZoom: select Move Camera, then scroll.",
+        "Draw Region: click vertices, then Finish Region.\nZoom: select Move Camera, then scroll.\n"
+        "Learn Background: relearn walls/fixtures with the area empty.",
         this);
     help->setWordWrap(true);
     layout->addWidget(help);
@@ -67,6 +68,7 @@ class RegionPanel : public rviz_common::Panel {
     addButton(grid, "Cancel Edit", "cancel", 1, 1);
     addButton(grid, "Clear Region", "clear", 2, 0);
     addButton(grid, "Load Saved Region", "load", 2, 1);
+    addButton(grid, "Learn Background", "learn_background", 3, 0);
     layout->addLayout(grid);
     auto* camera = new QPushButton("Move Camera (Zoom)", this);
     connect(camera, &QPushButton::clicked, this,
@@ -85,6 +87,7 @@ class RegionPanel : public rviz_common::Panel {
     const std::map<std::string, QString> labels{{"NO_REGION", "No region"},
                                                 {"EDITING", "Editing region - click Finish Region"},
                                                 {"NO_DATA", "No LiDAR data"},
+                                                {"LEARNING", "Learning background - keep area clear"},
                                                 {"CLEAR", "No obstacles in region"},
                                                 {"OCCUPIED", "Obstacle detected in region"}};
     auto it = labels.find(state);
@@ -119,6 +122,9 @@ class RegionPanel : public rviz_common::Panel {
     }
     if (action == "finish") {
       return "Region confirmed and saved.";
+    }
+    if (action == "learn_background") {
+      return "Learning background; keep the area clear for a moment.";
     }
     return "Done.";
   }

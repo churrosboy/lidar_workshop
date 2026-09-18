@@ -3,6 +3,18 @@ gl5_obstacle_detector:
     # /scan 및 RViz Fixed Frame과 일치시킵니다.
     frame_id: "laser"
 
+    # [배경 차분]
+    # 시작 직후(또는 Learn Background 버튼) 아래 프레임 수만큼 스캔을 모아 빔별 배경 거리를 학습합니다.
+    # 학습 뒤에는 배경보다 (margin + ratio*거리)만큼 가까운 점만 장애물 후보로 남깁니다.
+    # false로 두면 예전처럼 모든 점을 그대로 사용합니다.
+    background_enabled: true
+    # 학습에 쓰는 스캔 수 (약 40 Hz 기준 80 = 2초). 학습 중에는 영역을 비워 두세요.
+    background_learn_frames: 80
+    # 배경보다 이만큼(m) 가까워야 전경으로 봅니다. 키우면 잡음이 줄고 얇은 물체를 놓칠 수 있습니다.
+    background_margin: 0.15
+    # 거리에 비례하는 추가 여유 (2% = 10 m에서 0.2 m).
+    background_ratio: 0.02
+
     # [클러스터링]
     # 장애물로 인정할 묶음의 최소 유효 측정점 수 (무효점 제외).
     # 키우면 작은 잡음이 줄지만 작은 물체·먼 물체를 놓칠 수 있습니다.
