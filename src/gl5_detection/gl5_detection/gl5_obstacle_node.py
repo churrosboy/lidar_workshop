@@ -62,7 +62,9 @@ class ObstacleNode(Node):
                 if self.background.observe(msg.ranges, msg.angle_min, msg.angle_increment):
                     self.get_logger().info('Background map learned; returns off the map are obstacles')
                 return
-            ranges = self.background.foreground(msg.ranges, msg.angle_min, msg.angle_increment)
+            ranges = self.run_feature(
+                '배경 차분', 'background.py foreground()', msg.ranges,
+                self.background.foreground, msg.ranges, msg.angle_min, msg.angle_increment)
             if not self.background.aligned:
                 self.get_logger().warning(
                     f'Scan does not align with the background map (fitness '
@@ -70,15 +72,29 @@ class ObstacleNode(Node):
                     throttle_duration_sec=5.0)
         if not self.region or self.editing:
             return
-        self.obstacle_clusters = core.cluster_scan(
-            ranges, msg.angle_min, msg.angle_increment,
-            msg.range_min, msg.range_max, None, self.min_points, self.max_gap,
-        )
-        self.box_tracks = core.classify_tracks(
-            self.tracker.update(self.obstacle_clusters, now), self.to_laser(self.region),
-            self.predict_horizon, self.predict_step, self.min_predict_speed,
-        )
+        self.obstacle_clusters = self.run_feature(
+            '군집화', 'detection_core.py cluster_scan()', [],
+            core.cluster_scan, ranges, msg.angle_min, msg.angle_increment,
+            msg.range_min, msg.range_max, None, self.min_points, self.max_gap)
+        tracks = self.tracker.update(self.obstacle_clusters, now)
+        region = self.to_laser(self.region)
+        if self.prediction is None:
+            self.box_tracks = core.mark_in_region(tracks, region)
+        else:
+            self.box_tracks = self.run_feature(
+                '진입 예측', 'prediction.py predict_entry()', lambda: core.mark_in_region(tracks, region),
+                self.prediction.classify_tracks, tracks, region,
+                self.predict_horizon, self.predict_step, self.min_predict_speed)
         self.occupancy_filter.update(any(track.in_region for track in self.box_tracks), now)
+
+    # 기능 함수를 실행하되, 아직 채워지지 않은(NotImplementedError) 경우 안내 로그 후 대체값 반환
+    def run_feature(self, name, where, fallback, function, *args):
+        try:
+            return function(*args)
+        except NotImplementedError as exc:
+            self.get_logger().error(f'{name} 미구현: {where} 를 채우세요. {exc}',
+                                    throttle_duration_sec=5.0)
+            return fallback() if callable(fallback) else fallback
 
     # 프레임, 각도, 거리 메타데이터와 유효 반사 존재 여부 검사
     def is_valid_scan(self, msg: LaserScan) -> bool:
@@ -201,6 +217,7 @@ class ObstacleNode(Node):
         self.predict_step = param('predict_step', 0.1)
         self.warning_time = param('warning_time', 2.0)
         self.min_predict_speed = param('min_predict_speed', 0.1)
+        self.prediction_enabled = param('prediction_enabled', True)
         trail_length = param('trail_length', 60)
         background_enabled = param('background_enabled', True)
         learn_frames = param('background_learn_frames', 80)
@@ -213,9 +230,14 @@ class ObstacleNode(Node):
                 trail_length < 1:
             raise ValueError('Invalid prediction parameters')
         self.occupancy_filter = core.Occupancy(enter, leave)
+        self.prediction = None
+        if self.prediction_enabled:
+            from gl5_detection import prediction
+            self.prediction = prediction
         self.background = None
         if background_enabled:
-            self.background = core.BackgroundModel(learn_frames, margin, ratio)
+            from gl5_detection import background
+            self.background = background.BackgroundModel(learn_frames, margin, ratio)
             self.background.start_learning()
         self.tracker = core.BoxTracker(match_distance, max_age, speed_window, trail_length)
         self.visualization = RegionVisualization(
