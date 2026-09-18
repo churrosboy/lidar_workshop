@@ -7,7 +7,7 @@
   <arg name="rviz_config" default="$(find-pkg-share gl5_bringup)/rviz/gl5.rviz"/>
   <arg name="obstacles" default="true"/>
   <!-- ICP scan matcher: odom -> laser TF, /gl5/odom and /gl5/path. Pair with rviz/gl5_odom.rviz. -->
-  <arg name="scan_matcher" default="false"/>
+  <arg name="scan_matcher" default="true"/>
   <arg name="scan_matcher_params_file"
        default="$(find-pkg-share gl5_localization)/config/scan_matcher.yaml"/>
   <arg name="obstacle_params_file"

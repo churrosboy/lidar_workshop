@@ -39,7 +39,8 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Depth: 10
-      Line Style: Lines
+      Line Style: Billboards
+      Line Width: 0.03
       Color: 255; 170; 40
       Alpha: 1
     - Class: rviz_default_plugins/TF
