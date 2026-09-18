@@ -1,11 +1,20 @@
-param([Parameter(Mandatory=$true)][int]$InterfaceIndex)
+param([int]$InterfaceIndex = 0)
 $ErrorActionPreference = 'Stop'
 $settings = Get-Content (Join-Path $PSScriptRoot 'settings.json') -Raw | ConvertFrom-Json
-$adapter = Get-NetAdapter | Where-Object ifIndex -eq $InterfaceIndex
-if (-not $adapter) { throw 'Network adapter not found.' }
-if ($adapter.HardwareInterface -ne $true -or $adapter.NdisPhysicalMedium -eq 9) {
-    throw 'Select the physical USB Ethernet adapter, not Wi-Fi or a virtual adapter.'
+# Physical wired adapters only (no Wi-Fi = NdisPhysicalMedium 9, no virtual adapters).
+$wired = Get-NetAdapter | Where-Object { $_.HardwareInterface -eq $true -and $_.NdisPhysicalMedium -ne 9 }
+if ($InterfaceIndex -gt 0) {
+    $adapter = $wired | Where-Object ifIndex -eq $InterfaceIndex
+    if (-not $adapter) { throw "Interface $InterfaceIndex is not a physical wired adapter. Candidates: $(($wired | ForEach-Object { "$($_.ifIndex)=$($_.Name)" }) -join ', ')" }
+} else {
+    # Without an index, pick the wired adapter that has link (the sensor cable is plugged in).
+    $connected = @($wired | Where-Object Status -eq 'Up')
+    if ($connected.Count -eq 1) { $adapter = $connected[0] }
+    elseif ($connected.Count -eq 0) { throw "No wired adapter is connected. Plug in the sensor cable and retry. Wired adapters: $(($wired | ForEach-Object { "$($_.ifIndex)=$($_.Name) [$($_.Status)]" }) -join ', ')" }
+    else { throw "Several wired adapters are connected; pass -InterfaceIndex <n>: $(($connected | ForEach-Object { "$($_.ifIndex)=$($_.Name)" }) -join ', ')" }
 }
+$InterfaceIndex = $adapter.ifIndex
+Write-Host "Using adapter $($adapter.Name) (ifIndex $InterfaceIndex)"
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'Run this script in an administrator PowerShell.'

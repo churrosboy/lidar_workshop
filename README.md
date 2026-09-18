@@ -1,98 +1,105 @@
 # SOSLAB GL5 ROS 2 실습
 
-Windows 11 Pro + Docker Desktop(Hyper-V, Linux 컨테이너) 기준.
+Windows 11 + Docker Desktop(Linux 컨테이너) 기준.
 ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
-## 1. Python·VcXsrv 설치 (없는 경우, 최초 1회)
+## 1. 준비 (최초 1회)
 
-**Windows PowerShell에서 실행합니다. 현재 폴더는 어디든 괜찮습니다.**
-Python은 Windows UDP 중계용, VcXsrv는 RViz 화면 출력용입니다.
+- PowerShell에서 `git --version`을 입력해 git이 설치돼 있는지 확인합니다.
+  버전이 나오면 그대로 넘어갑니다. 없으면 설치합니다.
 
-```powershell
-winget install --id Python.Python.3.12 --exact --source winget
-winget install --id marha.VcXsrv --exact --source winget
-```
+  ```powershell
+  winget install --id Git.Git --exact --source winget
+  ```
 
-설치 후 PowerShell을 새로 열고 실행 경로를 확인합니다.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)을 설치하고 실행합니다.
+  준비됐는지 PowerShell에서 확인합니다. `linux`가 나오면 정상입니다.
 
-```powershell
-py -3.12 -c "import sys; print(sys.executable)"
-Test-Path "C:/Program Files/VcXsrv/vcxsrv.exe"
-```
+  ```powershell
+  docker info --format '{{.OSType}}'
+  ```
 
-첫 명령의 출력이 Python 경로입니다. 두 번째가 `True`이면 해당 VcXsrv 경로를 사용합니다.
-`False`이면 실제 설치 폴더에서 `vcxsrv.exe` 경로를 확인합니다.
+  `docker`를 찾을 수 없다고 나오면 설치되지 않은 것이고, `Cannot connect`가 나오면 Docker Desktop이 꺼져 있는 것입니다. 앱을 켜고 잠시 기다린 뒤 다시 실행합니다.
 
-## 2. 프로젝트·이미지 준비
+Python(UDP 중계용)과 VcXsrv(RViz 화면용)는 다음 단계의 `setup.cmd`가 찾거나 설치합니다. 이미 설치된 Python이 있으면 그대로 씁니다.
 
-저장소가 없다면 PowerShell에서 클론합니다.
+## 2. 프로젝트 준비 및 이미지 빌드
 
-```powershell
-git clone --branch windows --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
-```
-
-Docker Desktop을 켜고 실행합니다. `<Windows 브랜치 폴더>`를 실제 경로로 바꾸세요.
-아래 명령으로 실습용 이미지를 최초 1회 빌드합니다.
+**PowerShell에서 실행합니다.** 홈 폴더 아래 `lidar_workshop`에 받습니다. (이미지 빌드는 최초 1회만 합니다.)
 
 ```powershell
-cd "<Windows 브랜치 폴더>"  # Dockerfile이 있는 폴더, 예: C:/work/lidar_workshop
+cd ~
+git clone --branch windows_practice --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+cd lidar_workshop
+.\windows\setup.cmd
 docker build --platform linux/amd64 -t lidar-workshop:humble-amd64 .
-Copy-Item windows/settings.example.json windows/settings.json  # 최초 1회만
-
-notepad windows/settings.json # 수정 필요할 시
 ```
 
-센서 IP·포트와 위에서 확인한 실행 경로를 입력합니다. 경로는 `/`를 사용합니다.
-`lidar_type`은 연결한 센서에 맞춰 `"GL5"` 또는 `"GL3"`로 둡니다.
-아래 두 항목은 기존 JSON에서 수정합니다(사용자 이름은 실제 값으로 변경).
-
-```json
-"python_exe": "C:/Users/사용자이름/AppData/Local/Programs/Python/Python312/python.exe",
-"vcxsrv_exe": "C:/Program Files/VcXsrv/vcxsrv.exe"
-```
+`setup.cmd`는 Python과 VcXsrv를 찾아(없으면 winget으로 설치) `windows/settings.json`을 만듭니다.
+끝나면 찾은 경로가 출력됩니다. 설치가 새로 됐다면 PowerShell을 새로 열고 다시 실행합니다.
 
 기본 연결: 센서 `10.110.1.2:2000` → PC `10.110.1.3:3000`.
+다른 센서나 GL3를 쓰면 `windows/settings.json`의 `sensor_ip`, `lidar_type`(`"GL5"` 또는 `"GL3"`)을 수정합니다.
 
 ## 3. 유선 LAN 설정 (최초 1회)
 
-센서와 PC를 유선 연결합니다. **PowerShell을 관리자 권한으로 열어** 실행합니다.
-`16`은 센서가 연결된 유선 LAN의 실제 `ifIndex`로 바꾸세요.
-해당 어댑터의 고정 IP·방화벽을 설정하며 Wi-Fi는 유지합니다.
+라이다 전원을 켜고 유선 LAN(또는 USB 이더넷 어댑터)으로 PC에 연결합니다.
+**PowerShell을 관리자 권한으로 열어** 실행합니다. 케이블이 꽂힌 유선 어댑터를 자동으로 찾아 `10.110.1.3/24`를 지정하고 방화벽을 엽니다. Wi-Fi는 그대로 유지됩니다.
 
 ```powershell
-cd "<Windows 브랜치 폴더>"
-Get-NetAdapter
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/configure-network.ps1 -InterfaceIndex 16 # Get-NetAdapter로 얻은 숫자로 실행
+cd ~\lidar_workshop
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows\configure-network.ps1
 ping 10.110.1.2
 ```
 
-`ping`은 IP 응답 확인용입니다. 실제 데이터 수신은 아래 `/scan` 주기로 확인합니다.
+유선 어댑터가 여러 개 연결돼 있으면 후보 목록이 출력됩니다. 그때는 `-InterfaceIndex 16`처럼 번호를 붙여 다시 실행합니다.
+`ping`은 IP 응답 확인용입니다. 실제 데이터 수신은 아래 4단계에서 확인합니다.
 
 ## 4. 실행·수신 확인
 
-**일반 PowerShell**, 프로젝트 폴더에서 실행합니다. Docker Desktop이 켜져 있어야 합니다.
+1. **일반 PowerShell**에서 드라이버·장애물 감지·RViz를 실행합니다. Docker Desktop이 켜져 있어야 합니다. 실습하는 동안 $\color{red}{\textsf{이 창은 계속 열어 둡니다.}}$
 
-```powershell
-.\windows\start-lidar.cmd
-```
+   ```powershell
+   cd ~\lidar_workshop
+   .\windows\start-lidar.cmd
+   ```
 
-RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
-영역은 `windows/.local/gl5_region.json`에 자동 저장됩니다.
+   중계기와 VcXsrv가 자동으로 뜨고 RViz 창이 열립니다. 아래 줄이 5초마다 나오고 숫자가 계속 늘어나면 라이다 데이터를 잘 받고 있는 것입니다.
 
-**다른 PowerShell 창**에서 실제 스캔 수신 주기를 확인합니다.
+   ```
+   [gl5_node-1] [INFO] [1789568238.811711542] [gl5_node]: Received 240 frames
+   ```
 
-```powershell
-docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
-```
+   `Invalid pageLength`가 반복되면 `settings.json`의 `lidar_type`이 연결한 센서와 다른 것입니다.
+
+   &nbsp;
+
+2. **다른 PowerShell 창**에서 실제 스캔 수신 주기를 확인합니다. 약 40 Hz가 나오면 정상입니다.
+
+   ```powershell
+   docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
+   ```
+
+   &nbsp;
+
+3. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
+   영역은 `windows/.local/gl5_region.json`에 자동 저장됩니다.
 
 ## 5. 종료
 
-실습 실행 터미널에서 **Ctrl+C**로 드라이버·RViz를 종료합니다.
+실습 실행 창에서 **Ctrl+C**로 드라이버·RViz를 종료합니다.
 컨테이너까지 정지하려면 PowerShell에서 실행합니다.
 
 ```powershell
 docker stop lidar-workshop
 ```
+
+## 참고
+
+- **중계기가 필요한 이유:** 센서는 PC의 물리 LAN 주소로 UDP를 보내는데 Docker 컨테이너는 그 주소를 직접 받을 수 없습니다. `lidar_udp_relay.py`가 Windows에서 받아 컨테이너로 다시 보내 줍니다.
+- **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
+- **경로를 직접 지정하고 싶을 때:** `windows/settings.json`의 `python_exe`, `vcxsrv_exe`에 `/` 구분자로 적습니다. 비워 두면 실행할 때 자동으로 찾습니다.
+- **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
 
 ## 패키지 구조
 
@@ -100,6 +107,7 @@ docker stop lidar-workshop
 |---|---|
 | `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
 | `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
+| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
 | `gl5_rviz_plugins` | RViz 영역 설정 패널 |
 | `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
 

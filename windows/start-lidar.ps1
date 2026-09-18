@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $base = $PSScriptRoot
+. "$base\find-tools.ps1"
 $settingsPath = Join-Path $base 'settings.json'
-if (-not (Test-Path $settingsPath)) { throw 'Copy settings.example.json to settings.json and set your executable paths first.' }
+if (-not (Test-Path $settingsPath)) { throw 'settings.json not found. Run windows\setup.cmd first.' }
 $s = Get-Content $settingsPath -Raw | ConvertFrom-Json
 $lidarType = if ($s.lidar_type) { [string]$s.lidar_type } else { 'GL5' }
 if ($lidarType -notin @('GL5', 'GL3')) { throw "lidar_type must be GL5 or GL3: $lidarType" }
@@ -21,11 +22,10 @@ function Invoke-Docker {
 }
 $osType = Invoke-Docker info --format '{{.OSType}}'
 if ($osType -ne 'linux') { throw 'Start the Docker Desktop Linux engine.' }
-$python = $s.python_exe
-if (-not $python) { $python = (Get-Command python.exe -ErrorAction Stop).Source }
-$xserver = $s.vcxsrv_exe
-if (-not $xserver) { $xserver = "$env:ProgramFiles\VcXsrv\vcxsrv.exe" }
-if (-not (Test-Path $python) -or -not (Test-Path $xserver)) { throw 'Set python_exe and vcxsrv_exe in settings.json.' }
+$python = Find-Python -Preferred $s.python_exe
+$xserver = Find-VcXsrv -Preferred $s.vcxsrv_exe
+if (-not $python) { throw 'Python 3.8+ was not found. Run windows\setup.cmd to install it.' }
+if (-not $xserver) { throw 'VcXsrv was not found. Run windows\setup.cmd to install it.' }
 Invoke-Docker image inspect $s.image | Out-Null
 $runtime = Join-Path $base '.local'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
