@@ -82,8 +82,18 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         p = current[matched]
         q = target.points[neighbours[matched]]
         n = target.normals[neighbours[matched]]
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
         raise NotImplementedError('4단계 icp')
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
     matched, _ = matches()
     return transform, float(matched.mean())

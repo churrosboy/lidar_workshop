@@ -88,9 +88,19 @@ class BackgroundModel:
         self._align(points)
         aligned = icp.apply(self.pose, points)
         frame = np.asarray(ranges, dtype=float)
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
         raise NotImplementedError('2단계 BackgroundModel.foreground')
-        # =======Insert Your Code=======
+        # ========================== Insert Your Code ==========================
 
     # ICP로 포즈 갱신, 실패하거나 튀면 이전 포즈 유지 (ICP 미구현이면 센서 고정 가정)
     def _align(self, points: np.ndarray) -> None:
