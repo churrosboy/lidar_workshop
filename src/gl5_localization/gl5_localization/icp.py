@@ -1,22 +1,14 @@
-"""2D point-to-point ICP on laser scans, independent of ROS.
-
-scan_to_points(): LaserScan ranges -> (N, 2) array in the sensor frame.
-Target: a reference scan with its KD-tree and line normals, built once per keyframe.
-icp(): point-to-line ICP estimating the rigid transform T that maps src onto the Target.
-Transforms are 3x3 homogeneous matrices; make_transform()/to_pose() convert (x, y, yaw).
-"""
 import math
 import warnings
 
 import numpy as np
 
-warnings.filterwarnings('ignore', message='A NumPy version')  # scipy 1.8 vs numpy 1.26
-from scipy.spatial import cKDTree  # noqa: E402
+warnings.filterwarnings('ignore', message='A NumPy version')
+from scipy.spatial import cKDTree
 
 
 def scan_to_points(ranges, angle_min, angle_increment, min_range=0.1, max_range=30.0,
                    stride=1) -> np.ndarray:
-    """Valid returns as x/y points; every stride-th valid beam is kept."""
     distances = np.asarray(ranges, dtype=float)
     indices = np.arange(len(distances))
     valid = np.isfinite(distances) & (distances >= min_range) & (distances <= max_range)
@@ -40,8 +32,6 @@ def apply(transform: np.ndarray, points: np.ndarray) -> np.ndarray:
 
 
 class Target:
-    """A reference point set with its KD-tree and per-point line normals (computed once)."""
-
     def __init__(self, points: np.ndarray, neighbours=8):
         self.points = np.asarray(points, dtype=float)
         self.tree = cKDTree(self.points)
@@ -51,30 +41,19 @@ class Target:
         if k < 3:
             return np.zeros_like(self.points)
         _, index = self.tree.query(self.points, k=k)
-        groups = self.points[index]                      # (N, k, 2)
+        groups = self.points[index]
         centred = groups - groups.mean(axis=1, keepdims=True)
         covariance = np.einsum('nki,nkj->nij', centred, centred)
-        _, vectors = np.linalg.eigh(covariance)          # ascending eigenvalues
-        return vectors[:, :, 0]                          # direction of least spread
+        _, vectors = np.linalg.eigh(covariance)
+        return vectors[:, :, 0]
 
 
-# A single iteration moving further than this is divergence, not convergence.
 MAX_STEP_M = 1.0
 MAX_STEP_RAD = math.radians(45)
 
 
 def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=1e-4,
         min_pairs=10) -> tuple[np.ndarray, float]:
-    """Point-to-line ICP: align src to dst. Returns (T with apply(T, src) ~ dst, fitness).
-
-    dst is an (N, 2) array or a prebuilt Target. Each iteration matches every src point
-    to its nearest dst point within max_dist and solves the linearised least-squares
-    problem for (dx, dy, dtheta) that minimises the distance along the dst normals, so
-    points may slide along walls without penalty. fitness is the fraction of src points
-    matched with the returned transform; treat a low value as a failed match. init is
-    the starting guess (e.g. the previous motion). A diverging solve (non-finite or a
-    single step beyond MAX_STEP_*) returns the initial guess with fitness 0.
-    """
     target = dst if isinstance(dst, Target) else Target(dst)
     initial = np.eye(3) if init is None else np.array(init, dtype=float)
     if len(src) < min_pairs or not np.all(np.isfinite(initial)):
@@ -94,7 +73,6 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         p = current[matched]
         q = target.points[neighbours[matched]]
         n = target.normals[neighbours[matched]]
-        # Residual n.(R p + t - q) with R linearised: R p ~ p + theta * (-p_y, p_x).
         jacobian = np.column_stack((n[:, 0], n[:, 1], n[:, 0] * -p[:, 1] + n[:, 1] * p[:, 0]))
         residual = np.einsum('ij,ij->i', n, q - p)
         (dx, dy, dtheta), *_ = np.linalg.lstsq(jacobian, residual, rcond=1e-6)
@@ -106,6 +84,5 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         current = apply(step, current)
         if math.hypot(dx, dy) < tolerance and abs(dtheta) < tolerance:
             break
-    # Score the transform actually returned, not the one before the last step.
     matched, _ = matches()
     return transform, float(matched.mean())

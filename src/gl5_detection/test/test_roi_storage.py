@@ -1,4 +1,3 @@
-"""Persistence guarantees used by finish, clear and load region actions."""
 import json
 from pathlib import Path
 import sys
