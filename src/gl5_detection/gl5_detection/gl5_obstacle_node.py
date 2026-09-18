@@ -46,7 +46,8 @@ class ObstacleNode(Node):
         self.setup_menu()
         self.create_timer(0.1, self.update_state_and_publish)
         self.get_logger().info('Publish Point: select vertices, then click near the first point to finish. '
-                               'Region services: /gl5/region/{edit,undo,finish,cancel,clear,save,load}')
+                               'Region services: /gl5/region/{edit,undo,finish,cancel,clear,save,load,'
+                               'learn_background}')
         self.publish_outputs()
 
     # Scan processing and state
@@ -60,10 +61,21 @@ class ObstacleNode(Node):
             self.occupancy_filter.reset()
             self.tracker.reset()
         self.last_valid_scan_time = now
+        self.scan_geometry = (msg.angle_min, msg.angle_increment)
+        ranges = msg.ranges
+        if self.background is not None:
+            # Learning runs even without a region so the background outline is visible.
+            if self.background.learning:
+                if self.background.observe(msg.ranges):
+                    self.get_logger().info('Background learned; closer returns are now obstacles')
+                return
+            ranges = self.background.foreground(msg.ranges)
+            if self.background.learning:  # beam count changed (other sensor): relearning
+                return
         if not self.region or self.editing:
             return
         self.obstacle_clusters = core.cluster_scan(
-            msg.ranges, msg.angle_min, msg.angle_increment,
+            ranges, msg.angle_min, msg.angle_increment,
             msg.range_min, msg.range_max, self.region, self.min_points, self.max_gap,
         )
         self.box_tracks = self.tracker.update(self.obstacle_clusters, now)
@@ -91,6 +103,8 @@ class ObstacleNode(Node):
         elif self.last_valid_scan_time is None or time.monotonic() - self.last_valid_scan_time > self.timeout:
             self.state = 'NO_DATA'
             self.clear_detection_results()
+        elif self.background is not None and self.background.learning:
+            self.state = 'LEARNING'
         else:
             self.state = 'OCCUPIED' if self.occupancy_filter.occupied else 'CLEAR'
         self.publish_outputs()
@@ -114,8 +128,12 @@ class ObstacleNode(Node):
 
     def publish_obstacle_markers(self) -> None:
         vertices = self.draft if self.editing else self.region
+        background = []
+        if self.background is not None and self.background.ready and self.scan_geometry:
+            background = self.background.contour(*self.scan_geometry)
         markers = self.visualization.build_markers(
-            self.state, vertices, self.editing, self.box_tracks, self.obstacle_clusters
+            self.state, vertices, self.editing, self.box_tracks, self.obstacle_clusters,
+            background=background,
         )
         self.marker_pub.publish(markers)
 
@@ -148,8 +166,17 @@ class ObstacleNode(Node):
         speed_window = param('speed_window', 0.4)
         enter = param('enter_delay', 0.2)
         leave = param('exit_delay', 0.5)
+        background_enabled = param('background_enabled', True)
+        learn_frames = param('background_learn_frames', 80)
+        margin = param('background_margin', 0.15)
+        ratio = param('background_ratio', 0.02)
         self.validate_parameters(match_distance, max_age, speed_window, enter, leave)
         self.occupancy_filter = core.Occupancy(enter, leave)
+        # None disables background subtraction; otherwise learning starts with the first scans.
+        self.background = None
+        if background_enabled:
+            self.background = core.BackgroundModel(learn_frames, margin, ratio)
+            self.background.start_learning()
         self.tracker = core.BoxTracker(match_distance, max_age, speed_window)
         self.visualization = RegionVisualization(
             self.frame, self.label_height, lambda: self.get_clock().now().to_msg()
@@ -176,6 +203,7 @@ class ObstacleNode(Node):
         self.obstacle_clusters: list[list[core.Point2D]] = []
         self.editing = False
         self.last_valid_scan_time: float | None = None
+        self.scan_geometry: tuple[float, float] | None = None
         self.state = 'NO_REGION'
         self.menu_notice = ''
 
@@ -190,6 +218,7 @@ class ObstacleNode(Node):
         region_actions = (
             ('edit', self.edit), ('undo', self.undo), ('finish', self.finish),
             ('cancel', self.cancel), ('clear', self.clear), ('save', self.save), ('load', self.load),
+            ('learn_background', self.learn_background),
         )
         self.region_services = [
             self.create_service(Trigger, '/gl5/region/' + name, self.make_service_callback(action))
@@ -280,6 +309,16 @@ class ObstacleNode(Node):
     def write_region(self, region: list[core.Point2D]) -> None:
         write_region(self.region_file, self.frame, region)
 
+    # Background subtraction
+
+    def learn_background(self):
+        if self.background is None:
+            raise ValueError('Background subtraction is disabled (background_enabled=false)')
+        self.background.start_learning()
+        self.clear_detection_results()
+        return (f'Learning background from the next {self.background.learn_frames} scans; '
+                'keep the area clear')
+
     # RViz menu and service callbacks
 
     def setup_menu(self):
@@ -290,7 +329,8 @@ class ObstacleNode(Node):
                 ('Finish Region', self.finish),
                 ('Draw Region', self.edit),
                 ('Undo Last Point', self.undo),
-                ('Cancel Edit', self.cancel)):
+                ('Cancel Edit', self.cancel),
+                ('Learn Background', self.learn_background)):
             self.menu_handler.insert(title, callback=self.make_menu_callback(action))
         menu = make_region_menu(self.frame)
         self.menu_server.insert(menu)
@@ -361,8 +401,10 @@ STATE_COLORS = {
     'EDITING': (1.0, 0.8, 0.1, 1.0),
     'NO_REGION': (1.0, 0.8, 0.1, 1.0),
     'NO_DATA': (0.6, 0.6, 0.6, 1.0),
+    'LEARNING': (0.4, 0.7, 1.0, 1.0),
 }
 OBSTACLE_COLOR = (1.0, 0.1, 0.1, 1.0)
+BACKGROUND_COLOR = (0.55, 0.55, 0.6, 0.8)
 
 
 def make_region_menu(frame_id: str) -> InteractiveMarker:
@@ -415,8 +457,11 @@ class RegionVisualization:
         editing: bool,
         tracks: list[core.Track],
         clusters: list[list[core.Point2D]],
+        background: list[core.Point2D] = (),
     ) -> MarkerArray:
         markers = [Marker(action=Marker.DELETEALL), self._selection_surface()]
+        if background:
+            markers.append(self._background_outline(background))
         if vertices:
             markers.extend(self._region_markers(vertices, editing, STATE_COLORS[state]))
         for track in tracks:
@@ -447,6 +492,12 @@ class RegionVisualization:
         floor.scale.x = floor.scale.y = 120.0
         floor.scale.z = 0.01
         return floor
+
+    def _background_outline(self, points: list[core.Point2D]) -> Marker:
+        outline = self._marker('background', 0, Marker.POINTS, BACKGROUND_COLOR)
+        outline.scale.x = outline.scale.y = 0.03
+        outline.points = self._points(points)
+        return outline
 
     def _region_markers(self, vertices, editing, color) -> list[Marker]:
         line = self._marker('region', 0, Marker.LINE_STRIP, color)
