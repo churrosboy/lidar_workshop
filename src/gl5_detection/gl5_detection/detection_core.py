@@ -1,8 +1,9 @@
 """Obstacle detection algorithms, independent of ROS, RViz and file storage.
 
 BackgroundModel: learn the free-space distance per beam and keep only closer returns.
-cluster_scan(): turn laser ranges into clusters inside the selected polygon.
-BoxTracker: associate cluster boxes across scans and estimate relative speed.
+cluster_scan(): turn laser ranges into clusters (inside a polygon, or the whole scan).
+BoxTracker: associate cluster boxes across scans, keep a trail and estimate speed.
+predict_entry()/classify_tracks(): extrapolate tracks and find when they enter the region.
 Occupancy: debounce detection into an occupied/clear decision.
 """
 from collections import deque
@@ -164,7 +165,11 @@ class BackgroundModel:
 
 def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polygon,
              min_points=5, max_gap=0.15) -> list[list[Point2D]]:
-    """Cluster nearby in-ROI returns, skipping invalid beams; outside beams break it."""
+    """Cluster nearby returns, skipping invalid beams.
+
+    With a polygon only in-ROI returns are kept and outside beams break a cluster;
+    with polygon=None the whole scan is clustered (region checks happen per track).
+    """
     groups, current = [], []
     def flush():
         if len(current) >= min_points:
@@ -175,7 +180,7 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
             continue
         angle = angle_min + i * angle_increment
         point = (distance * math.cos(angle), distance * math.sin(angle))
-        if not inside(point, polygon):
+        if polygon is not None and not inside(point, polygon):
             flush()
             continue
         if current and math.dist(current[-1], point) > max_gap:
@@ -231,13 +236,20 @@ class Track:
     history: deque[tuple[float, float, float]] = field(default_factory=deque)
     velocity: Point2D = (0.0, 0.0)
     speed: float | None = None
+    # Past centers for drawing; length is BoxTracker(trail_length).
+    trail: deque[Point2D] = field(default_factory=deque)
+    # Filled by classify_tracks() once a region is known.
+    in_region: bool = False
+    time_to_enter: float | None = None
+    entry_point: Point2D | None = None
 
 
 class BoxTracker:
-    def __init__(self, match_distance=0.4, max_age=0.5, window=0.4):
+    def __init__(self, match_distance=0.4, max_age=0.5, window=0.4, trail_length=60):
         self.match_distance = match_distance
         self.max_age = max_age
         self.window = window
+        self.trail_length = int(trail_length)
         self.next_id = 1
         self.tracks: dict[int, Track] = {}
 
@@ -254,7 +266,8 @@ class BoxTracker:
         visible = []
         for index, center in enumerate(centers):
             if index not in assignments:
-                track = Track(self.next_id, center, boxes[index], now)
+                track = Track(self.next_id, center, boxes[index], now,
+                              trail=deque(maxlen=self.trail_length))
                 self.next_id += 1
                 self.tracks[track.id] = track
             else:
@@ -267,8 +280,10 @@ class BoxTracker:
             track.center = center
             track.last_seen = now
             track.box = boxes[index]
+            track.trail.append(center)
             # Copy the observation so later updates do not change its box/speed.
-            visible.append(replace(track))
+            # The trail is snapshotted as a list for the same reason.
+            visible.append(replace(track, trail=deque(track.trail, maxlen=self.trail_length)))
         return visible
 
     def _expire_tracks(self, now: float) -> None:
@@ -323,3 +338,34 @@ class BoxTracker:
             ) / denominator)
         track.velocity = tuple(velocities)
         track.speed = math.hypot(*velocities)
+
+
+# Region entry prediction
+
+def predict_entry(center: Point2D, velocity: Point2D, polygon: list[Point2D],
+                  horizon=3.0, step=0.1, min_speed=0.1) -> tuple[float, Point2D] | None:
+    """Constant-velocity extrapolation: (seconds until entering polygon, entry point).
+
+    None when the object is too slow to predict, already inside, or does not enter
+    within the horizon.
+    """
+    if math.hypot(*velocity) < min_speed or inside(center, polygon):
+        return None
+    steps = int(round(horizon / step))
+    for k in range(1, steps + 1):
+        t = k * step
+        point = (center[0] + velocity[0] * t, center[1] + velocity[1] * t)
+        if inside(point, polygon):
+            return t, point
+    return None
+
+
+def classify_tracks(tracks: list[Track], polygon: list[Point2D],
+                    horizon=3.0, step=0.1, min_speed=0.1) -> list[Track]:
+    """Set in_region and the entry prediction on each track (in place) and return them."""
+    for track in tracks:
+        track.in_region = inside(track.center, polygon)
+        prediction = None if track.in_region else predict_entry(
+            track.center, track.velocity, polygon, horizon, step, min_speed)
+        track.time_to_enter, track.entry_point = prediction if prediction else (None, None)
+    return tracks
