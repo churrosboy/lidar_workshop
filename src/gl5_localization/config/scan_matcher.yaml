@@ -1,0 +1,36 @@
+gl5_scan_matcher:
+  ros__parameters:
+    # 발행하는 좌표계 이름. base_frame은 /scan의 frame_id와 같아야 합니다.
+    odom_frame: "odom"
+    base_frame: "laser"
+    # odom -> laser TF를 발행합니다. RViz Fixed Frame을 odom으로 두려면 필요합니다.
+    publish_tf: true
+
+    # [점 선택]
+    # 유효 빔 중 stride개마다 1개만 사용합니다 (GL5 1500점 -> 약 500점). 키우면 빨라지고 정밀도가 조금 떨어집니다.
+    stride: 3
+    # 이 범위(m) 밖의 반사는 버립니다. 너무 먼 점은 각도 오차가 커서 정합을 흐립니다.
+    min_range: 0.1
+    max_range: 30.0
+    # 이보다 적은 점이면 정합하지 않습니다.
+    min_points: 50
+
+    # [ICP]
+    # 반복 횟수. 보통 10회 안에 수렴하며 tolerance에 도달하면 조기 종료합니다.
+    iterations: 20
+    # 이 거리(m) 이내의 최근접점만 대응쌍으로 씁니다. 빠르게 움직이면 키우세요.
+    max_correspondence: 0.5
+    # 대응쌍을 찾은 점의 비율이 이 값보다 낮으면 정합 실패로 보고 이전 포즈를 유지합니다.
+    min_fitness: 0.5
+
+    # [키프레임]
+    # 키프레임 대비 이만큼 이동/회전하면 현재 스캔을 새 키프레임으로 삼습니다.
+    # 작게 하면 드리프트가 늘고, 크게 하면 겹침이 줄어 정합이 실패할 수 있습니다.
+    keyframe_distance: 0.2
+    keyframe_angle_deg: 10.0
+
+    # [부하 조절]
+    # 스캔 N개 중 1개만 처리합니다 (40 Hz에서 처리 시간이 25 ms를 넘으면 2로).
+    process_every: 1
+    # /gl5/path에 유지하는 최대 포즈 수.
+    path_max_poses: 2000

@@ -4,7 +4,12 @@
   <arg name="params_file"
        default="$(find-pkg-share gl5_driver)/config/gl5.yaml"/>
   <arg name="rviz" default="true"/>
+  <arg name="rviz_config" default="$(find-pkg-share gl5_bringup)/rviz/gl5.rviz"/>
   <arg name="obstacles" default="true"/>
+  <!-- ICP scan matcher: odom -> laser TF, /gl5/odom and /gl5/path. Pair with rviz/gl5_odom.rviz. -->
+  <arg name="scan_matcher" default="false"/>
+  <arg name="scan_matcher_params_file"
+       default="$(find-pkg-share gl5_localization)/config/scan_matcher.yaml"/>
   <arg name="obstacle_params_file"
        default="$(env GL5_OBSTACLE_PARAMS_FILE $(find-pkg-share gl5_detection)/config/obstacles.yaml)"/>
   <!-- Preserve the original default: gl5_region.json in the working directory. -->
@@ -24,8 +29,14 @@
     <param name="region_file" value="$(var region_file)"/>
   </node>
 
+  <!-- Sensor odometry from scan matching (optional). -->
+  <node pkg="gl5_localization" exec="gl5_scan_matcher" name="gl5_scan_matcher"
+        output="screen" if="$(var scan_matcher)">
+    <param from="$(var scan_matcher_params_file)"/>
+  </node>
+
   <!-- Point cloud, region and obstacle visualization. -->
   <node pkg="rviz2" exec="rviz2" name="gl5_rviz"
         output="screen" if="$(var rviz)"
-        args="-d $(find-pkg-share gl5_bringup)/rviz/gl5.rviz"/>
+        args="-d $(var rviz_config)"/>
 </launch>
