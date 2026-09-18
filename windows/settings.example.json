@@ -1,4 +1,5 @@
 {
+  "lidar_type": "GL3",
   "sensor_ip": "10.110.1.2",
   "sensor_port": 2000,
   "pc_ip": "10.110.1.3",
