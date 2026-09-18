@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gl5_detection.roi_geometry import validate_polygon, inside, clusters, bounds, Occupancy
+from gl5_detection.detection_core import validate_polygon, inside, cluster_scan, bounds, Occupancy
 
 
 class PolygonTest(unittest.TestCase):
@@ -27,34 +27,34 @@ class PolygonTest(unittest.TestCase):
 
     def test_clusters_exclude_outside_and_isolated_returns(self):
         poly = validate_polygon([(0.2,-0.5),(2,-0.5),(2,0.5),(0.2,0.5)])
-        self.assertEqual(clusters([3.0]*7, -0.03, 0.01, 0, 60, poly), [])
-        self.assertEqual(clusters([1.0, math.inf, 1.0], -0.01, 0.01, 0, 60, poly), [])
-        groups = clusters([1.0]*5 + [math.inf] + [1.5]*5, -0.05, 0.01, 0, 60, poly)
+        self.assertEqual(cluster_scan([3.0]*7, -0.03, 0.01, 0, 60, poly), [])
+        self.assertEqual(cluster_scan([1.0, math.inf, 1.0], -0.01, 0.01, 0, 60, poly), [])
+        groups = cluster_scan([1.0]*5 + [math.inf] + [1.5]*5, -0.05, 0.01, 0, 60, poly)
         self.assertEqual([len(g) for g in groups], [5,5])
         self.assertGreater(bounds(groups[1])[0], bounds(groups[0])[2])
 
     def test_distance_jump_breaks_cluster(self):
         poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
-        self.assertEqual(len(clusters([1.0]*5 + [2.0]*5, 0, 0.001, 0, 60, poly)), 2)
+        self.assertEqual(len(cluster_scan([1.0]*5 + [2.0]*5, 0, 0.001, 0, 60, poly)), 2)
 
     def test_invalid_returns_are_skipped(self):
         poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
         invalid = [math.inf, math.nan, -math.inf, 0.0, -1.0, 0.05, 61.0]
-        groups = clusters([1.0]*3 + invalid + [1.0]*2,
+        groups = cluster_scan([1.0]*3 + invalid + [1.0]*2,
                           0, 0.001, 0.1, 60, poly, max_gap=0.30)
         self.assertEqual([len(g) for g in groups], [5])
-        self.assertEqual(clusters([1.0]*2 + invalid + [1.0]*2,
+        self.assertEqual(cluster_scan([1.0]*2 + invalid + [1.0]*2,
                                   0, 0.001, 0.1, 60, poly, max_gap=0.30), [])
 
     def test_gap_across_invalid_returns_still_breaks_cluster(self):
         poly = validate_polygon([(-3,-3),(3,-3),(3,3),(-3,3)])
-        groups = clusters([1.0]*5 + [math.inf]*3 + [2.0]*5,
+        groups = cluster_scan([1.0]*5 + [math.inf]*3 + [2.0]*5,
                           0, 0.001, 0, 60, poly, max_gap=0.30)
         self.assertEqual([len(g) for g in groups], [5, 5])
 
     def test_outside_return_still_breaks_cluster(self):
         poly = validate_polygon([(-2,-2),(2,-2),(2,2),(-2,2)])
-        groups = clusters([1.0]*5 + [3.0] + [1.0]*5,
+        groups = cluster_scan([1.0]*5 + [3.0] + [1.0]*5,
                           0, 0.001, 0, 60, poly, max_gap=0.30)
         self.assertEqual([len(g) for g in groups], [5, 5])
 
