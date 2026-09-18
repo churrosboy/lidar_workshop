@@ -61,17 +61,19 @@ class ObstacleNode(Node):
             self.occupancy_filter.reset()
             self.tracker.reset()
         self.last_valid_scan_time = now
-        self.scan_geometry = (msg.angle_min, msg.angle_increment)
         ranges = msg.ranges
         if self.background is not None:
             # Learning runs even without a region so the background outline is visible.
             if self.background.learning:
-                if self.background.observe(msg.ranges):
-                    self.get_logger().info('Background learned; closer returns are now obstacles')
+                if self.background.observe(msg.ranges, msg.angle_min, msg.angle_increment):
+                    self.get_logger().info('Background map learned; returns off the map are obstacles')
                 return
-            ranges = self.background.foreground(msg.ranges)
-            if self.background.learning:  # beam count changed (other sensor): relearning
-                return
+            ranges = self.background.foreground(msg.ranges, msg.angle_min, msg.angle_increment)
+            if not self.background.aligned:
+                self.get_logger().warning(
+                    f'Scan does not align with the background map (fitness '
+                    f'{self.background.fitness:.2f}); press Learn Background if the sensor moved',
+                    throttle_duration_sec=5.0)
         if not self.region or self.editing:
             return
         # Cluster the whole scan so approaching objects are tracked before they enter.
@@ -142,8 +144,8 @@ class ObstacleNode(Node):
     def publish_obstacle_markers(self) -> None:
         vertices = self.draft if self.editing else self.region
         background = []
-        if self.background is not None and self.background.ready and self.scan_geometry:
-            background = self.background.contour(*self.scan_geometry)
+        if self.background is not None and self.background.ready:
+            background = self.background.contour()
         markers = self.visualization.build_markers(
             self.state, vertices, self.editing, self.box_tracks, self.obstacle_clusters,
             background=background,
@@ -228,7 +230,6 @@ class ObstacleNode(Node):
         self.obstacle_clusters: list[list[core.Point2D]] = []
         self.editing = False
         self.last_valid_scan_time: float | None = None
-        self.scan_geometry: tuple[float, float] | None = None
         self.state = 'NO_REGION'
         self.menu_notice = ''
 
@@ -342,8 +343,8 @@ class ObstacleNode(Node):
             raise ValueError('Background subtraction is disabled (background_enabled=false)')
         self.background.start_learning()
         self.clear_detection_results()
-        return (f'Learning background from the next {self.background.learn_frames} scans; '
-                'keep the area clear')
+        return (f'Learning background map from the next {self.background.learn_frames} scans; '
+                'keep the area clear and the sensor still')
 
     # RViz menu and service callbacks
 
