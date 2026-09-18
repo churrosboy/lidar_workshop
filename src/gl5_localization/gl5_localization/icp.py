@@ -58,6 +58,11 @@ class Target:
         return vectors[:, :, 0]                          # direction of least spread
 
 
+# A single iteration moving further than this is divergence, not convergence.
+MAX_STEP_M = 1.0
+MAX_STEP_RAD = math.radians(45)
+
+
 def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=1e-4,
         min_pairs=10) -> tuple[np.ndarray, float]:
     """Point-to-line ICP: align src to dst. Returns (T with apply(T, src) ~ dst, fitness).
@@ -66,19 +71,24 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
     to its nearest dst point within max_dist and solves the linearised least-squares
     problem for (dx, dy, dtheta) that minimises the distance along the dst normals, so
     points may slide along walls without penalty. fitness is the fraction of src points
-    matched on the last iteration; treat a low value as a failed match. init is the
-    starting guess (e.g. the previous motion).
+    matched with the returned transform; treat a low value as a failed match. init is
+    the starting guess (e.g. the previous motion). A diverging solve (non-finite or a
+    single step beyond MAX_STEP_*) returns the initial guess with fitness 0.
     """
     target = dst if isinstance(dst, Target) else Target(dst)
-    transform = np.eye(3) if init is None else np.array(init, dtype=float)
+    initial = np.eye(3) if init is None else np.array(init, dtype=float)
+    if len(src) < min_pairs or not np.all(np.isfinite(initial)):
+        return initial, 0.0
+    transform = initial
     current = apply(transform, src)
-    fitness = 0.0
-    if len(src) < min_pairs:
-        return transform, fitness
-    for _ in range(iterations):
+
+    def matches():
         distances, neighbours = target.tree.query(current, distance_upper_bound=max_dist)
         matched = np.isfinite(distances)
-        fitness = float(matched.mean())
+        return matched, neighbours
+
+    for _ in range(iterations):
+        matched, neighbours = matches()
         if matched.sum() < min_pairs:
             break
         p = current[matched]
@@ -87,10 +97,15 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         # Residual n.(R p + t - q) with R linearised: R p ~ p + theta * (-p_y, p_x).
         jacobian = np.column_stack((n[:, 0], n[:, 1], n[:, 0] * -p[:, 1] + n[:, 1] * p[:, 0]))
         residual = np.einsum('ij,ij->i', n, q - p)
-        (dx, dy, dtheta), *_ = np.linalg.lstsq(jacobian, residual, rcond=None)
+        (dx, dy, dtheta), *_ = np.linalg.lstsq(jacobian, residual, rcond=1e-6)
+        if (not all(map(math.isfinite, (dx, dy, dtheta))) or math.hypot(dx, dy) > MAX_STEP_M
+                or abs(dtheta) > MAX_STEP_RAD):
+            return initial, 0.0
         step = make_transform(dx, dy, dtheta)
         transform = step @ transform
         current = apply(step, current)
         if math.hypot(dx, dy) < tolerance and abs(dtheta) < tolerance:
             break
-    return transform, fitness
+    # Score the transform actually returned, not the one before the last step.
+    matched, _ = matches()
+    return transform, float(matched.mean())
