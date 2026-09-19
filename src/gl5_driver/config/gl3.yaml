@@ -1,8 +1,8 @@
 gl5_node:
   ros__parameters:
-    # Sensor model: "GL5" (270 deg) or "GL3" (180 deg). See gl3.yaml for GL3.
-    lidar_type: "GL5"
-    # Verified on hardware: SDK UDP port is 2000 (2020 refused).
+    # GL3: 180 deg horizontal FOV, 1000 points per scan. Same UDP protocol as GL5.
+    lidar_type: "GL3"
+    # Adjust if the GL3 is configured with a different IP/port (check with the SOSLAB tool).
     sensor_ip: "10.110.1.2"
     sensor_port: 2000
     pc_ip: "10.110.1.3"

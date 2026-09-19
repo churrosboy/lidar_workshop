@@ -50,3 +50,15 @@ TEST(Conversion, RangeLimitsAndConfiguration) {
   config.range_max = 0;
   EXPECT_THROW(gl5_driver::make_scan(frame({1, 2}), config, builtin_interfaces::msg::Time(), 0), std::invalid_argument);
 }
+TEST(Conversion, Gl3FovIs180Degrees) {
+  gl5_driver::ScanConfig config; config.fov_deg = 180.0;
+  auto scan = gl5_driver::make_scan(frame({1000, 2000, 3000}), config, builtin_interfaces::msg::Time(), 0);
+  EXPECT_NEAR(scan.angle_min, -M_PI / 2, 1e-6);
+  EXPECT_NEAR(scan.angle_max, M_PI / 2, 1e-6);
+  EXPECT_NEAR(scan.angle_min + scan.angle_increment, 0, 1e-6);
+  auto cloud = gl5_driver::make_cloud(scan);
+  sensor_msgs::PointCloud2ConstIterator<float> x(cloud, "x"), y(cloud, "y");
+  EXPECT_NEAR(*x, 0, 1e-6); EXPECT_NEAR(*y, -1, 1e-6);
+  config.fov_deg = 0;
+  EXPECT_THROW(gl5_driver::make_scan(frame({1, 2}), config, builtin_interfaces::msg::Time(), 0), std::invalid_argument);
+}

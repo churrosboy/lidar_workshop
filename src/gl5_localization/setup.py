@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'gl5_detection'
+package_name = 'gl5_localization'
 
 setup(
     name=package_name,
@@ -9,19 +9,18 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/config', ['config/obstacles.yaml', 'config/obstacles_step1.yaml',
-                                                'config/obstacles_step2.yaml']),
+        ('share/' + package_name + '/config', ['config/scan_matcher.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='dhkim',
     maintainer_email='dhkim@example.com',
-    description='GL5 region editing, obstacle detection and tracking',
+    description='Keyframe ICP scan matcher for the GL5/GL3 workshop',
     license='BSD-3-Clause',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'gl5_obstacle_node = gl5_detection.gl5_obstacle_node:main',
+            'gl5_scan_matcher = gl5_localization.scan_matcher_node:main',
         ],
     },
 )
