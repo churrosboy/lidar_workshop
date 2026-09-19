@@ -31,7 +31,7 @@ ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
 ```bash
 cd ~
-git clone --branch mac --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+git clone --branch mac1 --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
 cd lidar_workshop
 docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
