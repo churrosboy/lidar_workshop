@@ -48,7 +48,10 @@ fi
 # 암호를 걸어야 붙습니다. VNC 암호는 8자까지만 유효합니다.
 VNC_PASSWORD="${GL5_VNC_PASSWORD:-gl5lab}"
 # -forever 로 뷰어가 끊겨도 살아 있게 하고, -shared 로 여러 명이 볼 수 있게 합니다.
-x11vnc -display "$DISPLAY" -rfbport "$VNC_PORT" -forever -shared \
+# -threads 가 없으면 x11vnc 는 한 루프에서 화면 폴링과 클라이언트 입출력을 번갈아 합니다.
+# 이 화면은 라이다 40 Hz 로 쉬지 않고 변해서 폴링이 루프를 계속 잡고, 마우스 클릭이 그 뒤에
+# 줄을 섭니다. 버튼이 한참 뒤에 눌리는 원인이라 입출력을 별도 스레드로 뺍니다.
+x11vnc -display "$DISPLAY" -rfbport "$VNC_PORT" -forever -shared -threads \
   -passwd "$VNC_PASSWORD" -quiet -noxdamage >/tmp/x11vnc.log 2>&1 &
 VNC_PID=$!
 sleep 1

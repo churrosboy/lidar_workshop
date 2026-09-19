@@ -18,8 +18,13 @@ PARAMS="$LAB_ROOT/src/gl5_driver/config/gl5.yaml"
 RUNTIME="$MAC_DIR/.local"
 VNC_PORT="${GL5_VNC_PORT:-5901}"
 VNC_PASSWORD="${GL5_VNC_PASSWORD:-gl5lab}"
-ACTION="${1:-workshop}"
-[ $# -gt 0 ] && shift
+# 첫 인자가 launch 인자(name:=value)면 액션은 기본값 workshop 입니다.
+# 이게 없으면 bash mac/start-lidar.sh scan_matcher:=false 가 사용법 오류를 냅니다.
+ACTION="workshop"
+if [ $# -gt 0 ] && [[ "$1" != *":="* ]]; then
+  ACTION="$1"
+  shift
+fi
 
 # PyYAML 없이 읽습니다. macOS 기본 python3 에는 PyYAML 이 없습니다.
 param() {
@@ -82,6 +87,7 @@ case "$ACTION" in
     docker run "${TTY_FLAGS[@]}" "${RUN_FLAGS[@]}" \
       -p "127.0.0.1:$VNC_PORT:$VNC_PORT" \
       -e "GL5_VNC_PORT=$VNC_PORT" -e "GL5_VNC_PASSWORD=$VNC_PASSWORD" \
+      -e "GL5_VNC_GEOMETRY=${GL5_VNC_GEOMETRY:-1400x900x24}" \
       "$IMAGE" /opt/lidar_workshop/scripts/workshop_vnc.sh \
       bash /opt/lidar_workshop/scripts/run.sh "$@"
     ;;
