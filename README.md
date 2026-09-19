@@ -31,7 +31,7 @@ ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
 ```bash
 cd ~
-git clone --branch mac --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+git clone --branch mac_practice --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
 cd lidar_workshop
 docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
@@ -134,3 +134,45 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 | `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
 | `gl5_rviz_plugins` | RViz 영역 설정 패널 |
 | `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
+
+## 실습 단계 (mac_practice 브랜치)
+
+이 브랜치는 네 함수의 본문이 비어 있습니다. 각 단계에서 원리를 설명한 뒤 함수를 채우고, 테스트로 확인하고, 실행해 봅니다.
+비어 있는 함수는 `raise NotImplementedError`로 표시되어 있고, 채우기 전에는 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다. 그래서 1단계만 풀어도 실습이 돌아갑니다.
+완성본은 `mac` 브랜치에 있습니다.
+
+| 단계 | 주제 | 채우는 함수 | 채점 |
+|---|---|---|---|
+| 1 | 군집화 | `src/gl5_detection/gl5_detection/detection_core.py` → `cluster_scan` | `pytest test/test_clustering.py test/test_roi_geometry.py` |
+| 2 | 배경 차분 | `src/gl5_detection/gl5_detection/background.py` → `BackgroundModel.foreground` | `pytest test/test_background.py` |
+| 3 | 진입 예측 | `src/gl5_detection/gl5_detection/prediction.py` → `predict_entry` | `pytest test/test_prediction.py` |
+| 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `pytest test/test_icp.py` |
+
+단계별 실행 (앞 단계 기능만 켠 설정으로 확인합니다):
+
+```bash
+# 1단계
+GL5_OBSTACLE_PARAMS_FILE=/opt/lidar_workshop/src/gl5_detection/config/obstacles_step1.yaml \
+  bash mac/start-lidar.sh scan_matcher:=false
+# 2단계
+GL5_OBSTACLE_PARAMS_FILE=/opt/lidar_workshop/src/gl5_detection/config/obstacles_step2.yaml \
+  bash mac/start-lidar.sh scan_matcher:=false
+# 3단계
+bash mac/start-lidar.sh scan_matcher:=false
+# 4단계
+bash mac/start-lidar.sh rviz_config:=/opt/lidar_workshop/src/gl5_bringup/rviz/gl5_odom.rviz
+```
+
+테스트는 실습을 끈 뒤 `bash mac/start-lidar.sh shell`로 들어가 해당 패키지 폴더(`src/gl5_detection` 또는 `src/gl5_localization`)에서 실행합니다.
+실습이 돌고 있는 중이라면 다른 터미널에서 이렇게도 됩니다.
+
+```bash
+docker exec -it lidar-workshop /ros_entrypoint.sh \
+  bash -c "cd src/gl5_detection && python3 -m pytest test/test_clustering.py"
+```
+
+파이썬 파일은 **Mac에서 고치고 실습만 다시 실행하면 반영됩니다.** 다시 빌드할 필요 없습니다.
+
+기대 결과: 1단계에서는 영역 안 물체에 빨간 박스, 밖은 초록. 2단계에서는 벽·고정물이 회색 배경이 되어 박스가 사라지고 새로 놓은 물체만 잡힘.
+3단계에서는 영역 밖에서 걸어 들어올 때 초록 → 노랑(점선 예측, `in1.3s`) → 빨강. 4단계에서는 센서를 들고 움직이면 주황색 경로와 누적 스캔이 그려지고,
+2단계 배경도 센서 회전을 따라가게 됩니다.

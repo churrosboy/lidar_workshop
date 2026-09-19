@@ -82,16 +82,18 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         p = current[matched]
         q = target.points[neighbours[matched]]
         n = target.normals[neighbours[matched]]
-        jacobian = np.column_stack((n[:, 0], n[:, 1], n[:, 0] * -p[:, 1] + n[:, 1] * p[:, 0]))
-        residual = np.einsum('ij,ij->i', n, q - p)
-        (dx, dy, dtheta), *_ = np.linalg.lstsq(jacobian, residual, rcond=1e-6)
-        if (not all(map(math.isfinite, (dx, dy, dtheta))) or math.hypot(dx, dy) > MAX_STEP_M
-                or abs(dtheta) > MAX_STEP_RAD):
-            return initial, 0.0
-        step = make_transform(dx, dy, dtheta)
-        transform = step @ transform
-        current = apply(step, current)
-        if math.hypot(dx, dy) < tolerance and abs(dtheta) < tolerance:
-            break
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
+        raise NotImplementedError('4단계 icp')
+        # ========================== Insert Your Code ==========================
     matched, _ = matches()
     return transform, float(matched.mean())

@@ -87,15 +87,20 @@ class BackgroundModel:
             return list(ranges)
         self._align(points)
         aligned = icp.apply(self.pose, points)
-        distance, _ = self.target.tree.query(aligned)
         frame = np.asarray(ranges, dtype=float)
-        keep = distance > self.margin + self.ratio * frame[index]
-        heading = np.arctan2(aligned[:, 1], aligned[:, 0])
-        low, high = self.map_sector
-        keep &= (heading >= low + 0.02) & (heading <= high - 0.02)
-        out = np.full(len(frame), np.inf)
-        out[index[keep]] = frame[index[keep]]
-        return out.tolist()
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
+        raise NotImplementedError('2단계 BackgroundModel.foreground')
+        # ========================== Insert Your Code ==========================
 
     # ICP로 포즈 갱신, 실패하거나 튀면 이전 포즈 유지 (ICP 미구현이면 센서 고정 가정)
     def _align(self, points: np.ndarray) -> None:
