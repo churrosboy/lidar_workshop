@@ -134,7 +134,15 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 
 ### 공통 사항
 
-**테스트 실행** — 실습을 끈 뒤 컨테이너 셸로 들어가 해당 패키지 폴더에서 돌립니다.
+**테스트 실행** — 채점 테스트는 **라이다가 없어도 돌아갑니다.** 지금 상황에 맞는 방법을 쓰세요.
+
+| 상황 | 방법 |
+|---|---|
+| 라이다 없이 코딩 중 (대부분의 시간) | 컨테이너 셸 |
+| 라이다 앞에서 실습을 켜 둔 상태 | `docker exec` |
+| Docker 없이 Mac에서 바로 (선택) | 파이썬 가상환경 |
+
+**컨테이너 셸** — 실습이 꺼져 있을 때 씁니다. 라이다 연결이나 중계기 없이도 뜹니다.
 
 ```bash
 bash mac/start-lidar.sh shell
@@ -142,14 +150,33 @@ cd src/gl5_detection        # 또는 src/gl5_localization
 python3 -m pytest test/test_clustering.py
 ```
 
-실습이 돌고 있는 중이라면 다른 터미널에서 이렇게도 됩니다.
+**`docker exec`** — 실습이 켜져 있을 때 다른 터미널에서 씁니다. 실습을 끊지 않아도 됩니다.
 
 ```bash
 docker exec -it lidar-workshop /ros_entrypoint.sh \
   bash -c "cd src/gl5_detection && python3 -m pytest test/test_clustering.py"
 ```
 
-`pytest test/`처럼 폴더를 통째로 지정해도 되지만, 그러면 아직 안 푼 단계의 실패까지 섞여 나옵니다. 단계별로 파일을 지정하는 편이 읽기 쉽습니다.
+위 두 가지는 **동시에 쓸 수 없습니다.** `shell`과 실습이 같은 이름(`lidar-workshop`)의 컨테이너를 쓰기 때문입니다.
+실습이 켜진 상태에서 `shell`을 부르면 `컨테이너 lidar-workshop 가 이미 있습니다`라고 나옵니다. 그럴 때는 `docker exec`를 쓰세요.
+
+**파이썬 가상환경** (선택) — 채점 대상 네 함수는 ROS를 쓰지 않는 순수 함수라, Mac에서 바로 돌려도 됩니다.
+Docker를 띄우지 않아도 되니 코딩 중에는 이쪽이 가볍습니다. 최초 1회만 만들면 됩니다.
+
+```bash
+cd ~/lidar_workshop
+python3 -m venv .venv
+.venv/bin/python -m pip install numpy scipy pytest
+
+cd src/gl5_detection
+../../.venv/bin/python -m pytest test/test_clustering.py
+```
+
+이 방법을 쓸 때는 **채점 파일을 지정해서** 돌려야 합니다. `pytest test/`로 폴더를 통째로 지정하면
+`test_roi_storage.py`와 `test_obstacle_behavior.py`가 ROS(`rclpy`)를 찾다가 수집 에러를 냅니다.
+그 둘은 컨테이너 안에서만 돌아갑니다.
+
+어느 방법이든 폴더를 통째로 지정하면 아직 안 푼 단계의 실패까지 섞여 나옵니다. 단계별로 파일을 지정하는 편이 읽기 쉽습니다.
 
 **수정 반영** — 파이썬 파일은 **Mac에서 고치고 실습만 다시 실행하면 됩니다.** 이미지를 다시 빌드할 필요 없습니다.
 
