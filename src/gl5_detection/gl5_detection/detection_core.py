@@ -86,16 +86,19 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
             groups.append(current.copy())
         current.clear()
     for i, distance in enumerate(ranges):
-        if not math.isfinite(distance) or distance <= 0 or not range_min <= distance <= range_max:
-            continue
-        angle = angle_min + i * angle_increment
-        point = (distance * math.cos(angle), distance * math.sin(angle))
-        if polygon is not None and not inside(point, polygon):
-            flush()
-            continue
-        if current and math.dist(current[-1], point) > max_gap:
-            flush()
-        current.append(point)
+        # ========================== Insert Your Code ==========================
+
+
+
+
+
+
+
+
+
+
+        raise NotImplementedError('1단계 cluster_scan')
+        # ========================== Insert Your Code ==========================
     flush()
     return groups
 
