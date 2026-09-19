@@ -27,10 +27,11 @@ Visualization Manager:
     - Class: rviz_default_plugins/Axes
       Name: Sensor axes
       Enabled: true
+      Reference Frame: laser
       Length: 0.5
       Radius: 0.03
     - Class: rviz_default_plugins/Path
-      Name: Sensor path (ICP odometry)
+      Name: Sensor path (ICP)
       Enabled: true
       Topic:
         Value: /gl5/path
@@ -43,12 +44,12 @@ Visualization Manager:
       Color: 255; 170; 40
       Alpha: 1
     - Class: rviz_default_plugins/TF
-      Name: TF (odom origin)
+      Name: TF
       Enabled: true
       Show Names: true
       Show Axes: true
       Show Arrows: false
-      Marker Scale: 0.6
+      Marker Scale: 0.5
     - Class: rviz_default_plugins/LaserScan
       Name: GL5 scan
       Enabled: true
@@ -64,10 +65,10 @@ Visualization Manager:
       Color: 40; 230; 170
       Position Transformer: XYZ
       Alpha: 1
-      Decay Time: 0
+      Decay Time: 30
     - Class: rviz_default_plugins/PointCloud2
       Name: GL5 points
-      Enabled: true
+      Enabled: false
       Topic:
         Value: /points
         Reliability Policy: Best Effort
@@ -83,7 +84,7 @@ Visualization Manager:
       Alpha: 1
       Decay Time: 0
   Global Options:
-    Fixed Frame: laser
+    Fixed Frame: odom
     Background Color: 18; 24; 32
     Frame Rate: 30
   Tools:
@@ -102,8 +103,8 @@ Visualization Manager:
     Current:
       Class: rviz_default_plugins/TopDownOrtho
       Name: Top view
-      Scale: 60
-      X: 1
+      Scale: 40
+      X: 0
       Y: 0
       Angle: 0
       Target Frame: <Fixed Frame>

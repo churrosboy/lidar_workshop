@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3-colcon-common-extensions \
     python3-matplotlib \
+    python3-numpy \
+    python3-scipy \
     python3-yaml \
     python3-pytest \
     qtbase5-dev \

@@ -1,0 +1,108 @@
+{
+  "header": {
+    "stamp": {
+      "sec": 0,
+      "nanosec": 0
+    },
+    "frame_id": "laser"
+  },
+  "pose": {
+    "position": {
+      "x": 0.0,
+      "y": -0.7,
+      "z": 0.15
+    },
+    "orientation": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "w": 1.0
+    }
+  },
+  "name": "region_menu",
+  "description": "ROI MENU (right-click)",
+  "scale": 0.5,
+  "menu_entries": [],
+  "controls": [
+    {
+      "name": "menu",
+      "orientation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 1.0
+      },
+      "orientation_mode": 0,
+      "interaction_mode": 1,
+      "always_visible": true,
+      "markers": [
+        {
+          "header": {
+            "stamp": {
+              "sec": 0,
+              "nanosec": 0
+            },
+            "frame_id": ""
+          },
+          "ns": "",
+          "id": 0,
+          "type": 1,
+          "action": 0,
+          "pose": {
+            "position": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "orientation": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "w": 1.0
+            }
+          },
+          "scale": {
+            "x": 0.35,
+            "y": 0.35,
+            "z": 0.08
+          },
+          "color": {
+            "r": 0.1,
+            "g": 0.55,
+            "b": 1.0,
+            "a": 1.0
+          },
+          "lifetime": {
+            "sec": 0,
+            "nanosec": 0
+          },
+          "frame_locked": false,
+          "points": [],
+          "colors": [],
+          "texture_resource": "",
+          "texture": {
+            "header": {
+              "stamp": {
+                "sec": 0,
+                "nanosec": 0
+              },
+              "frame_id": ""
+            },
+            "format": "",
+            "data": []
+          },
+          "uv_coordinates": [],
+          "text": "",
+          "mesh_resource": "",
+          "mesh_file": {
+            "filename": "",
+            "data": []
+          },
+          "mesh_use_embedded_materials": false
+        }
+      ],
+      "independent_marker_orientation": false,
+      "description": ""
+    }
+  ]
+}

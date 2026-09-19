@@ -37,7 +37,8 @@ docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
 
 기본 연결: 센서 `10.110.1.2:2000` → PC `10.110.1.3:3000`.
-다른 GL5를 쓰면 `src/gl5_driver/config/gl5.yaml`을 수정합니다.
+다른 GL5를 쓰면 `src/gl5_driver/config/gl5.yaml`의 `sensor_ip`를 수정합니다.
+(같은 파일의 `lidar_type`을 `"GL3"`로 두면 GL3도 쓸 수 있습니다. macOS에서는 아직 검증하지 않았습니다.)
 
 ## 3. 유선 LAN 설정
 
@@ -79,10 +80,20 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    ```
 
    `Received ... frames` 대신 `GL5 stream command not acknowledged`가 나오면 터미널 1의 중계기가 켜져 있는지 확인합니다.
+   `Invalid pageLength`가 반복되면 `gl5.yaml`의 `lidar_type`이 연결한 센서와 다른 것입니다.
 
    &nbsp;
 
-3. `command + T`로 터미널 창 3을 켜고, 아래 명령으로 RViz 화면에 접속합니다.
+3. `command + T`로 터미널 창 3을 켜고, 실제 스캔 수신 주기를 확인합니다. 약 40 Hz가 나오면 정상입니다.
+   확인했으면 **Ctrl+C**로 빠져나옵니다.
+
+   ```bash
+   docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
+   ```
+
+   &nbsp;
+
+4. **터미널 3**에서 아래 명령으로 RViz 화면에 접속합니다.
    화면 공유 앱이 열리고 $\color{yellow}{\textsf{암호를 물으면 gl5lab을 입력}}$합니다.
 
    ```bash
@@ -91,7 +102,7 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 
    &nbsp;
 
-4. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
+5. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
    영역은 `mac/.local/gl5_region.json`에 자동 저장됩니다.
 
 ## 5. 종료
@@ -103,6 +114,8 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 
 - **중계기가 필요한 이유:** GL5는 데이터를 이더넷 브로드캐스트 프레임으로 보냅니다. $\color{blue}{\textsf{macOS 커널은 이 프레임을 버리므로}}$, 중계기가 `tcpdump`로 받아 컨테이너에 다시 보내 줍니다.
 - **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
+- **파이썬 코드 수정:** `src/` 아래 `.py`를 Mac에서 고치고 실습을 다시 실행하면 바로 반영됩니다. C++(`gl5_driver`, `gl5_rviz_plugins`)을 고쳤을 때만 `bash mac/start-lidar.sh shell`로 들어가 `bash scripts/build.sh`를 실행합니다.
+- **배경 학습:** RViz 패널의 **Learn Background**를 영역을 비운 상태에서 누르면 벽·고정물을 배경으로 학습해 감지에서 제외합니다. 센서를 크게 옮겼으면 다시 누릅니다.
 - **컨테이너 셸:** `bash mac/start-lidar.sh shell`
 - **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
 
@@ -112,5 +125,6 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 |---|---|
 | `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
 | `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
+| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
 | `gl5_rviz_plugins` | RViz 영역 설정 패널 |
 | `gl5_bringup` | 전체 노드 실행과 RViz 설정 |

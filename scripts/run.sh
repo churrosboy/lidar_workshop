@@ -11,4 +11,4 @@ params_args=()
 if [[ -n "${GL5_PARAMS_FILE:-}" ]]; then
   params_args+=("params_file:=$GL5_PARAMS_FILE")
 fi
-exec ros2 launch gl5_bringup gl5.launch.py "${params_args[@]}" "$@"
+exec ros2 launch gl5_bringup gl5.launch.xml "${params_args[@]}" "$@"

@@ -50,11 +50,14 @@ sed -E "s/^([[:space:]]*sensor_ip:).*/\1 \"$HOST_IP\"/" "$PARAMS" > "$RUNTIME/gl
 
 # 펌웨어에 저장된 PC 포트로 데이터가 오므로 그 포트를 컨테이너로 넘깁니다.
 # 루프백에만 공개합니다. 0.0.0.0 으로 열면 중계기가 잡고 있는 포트와 부딪힙니다.
+# src 는 읽기·쓰기로 물립니다. 이미지가 --symlink-install 로 빌드돼 있어 여기의
+# 파이썬 파일을 Mac 에서 고치면 다시 빌드하지 않아도 다음 실행에 반영됩니다.
 RUN_FLAGS=(--rm --name "$CONTAINER" -p "127.0.0.1:$PC_PORT:$PC_PORT/udp"
   -v "$RUNTIME:/mac-runtime"
   -v "$LAB_ROOT/scripts:/opt/lidar_workshop/scripts:ro"
-  -v "$LAB_ROOT/src/gl5_detection/config:/opt/lidar_workshop/src/gl5_detection/config:ro"
+  -v "$LAB_ROOT/src:/opt/lidar_workshop/src"
   -e GL5_PARAMS_FILE=/mac-runtime/gl5.yaml
+  -e "GL5_OBSTACLE_PARAMS_FILE=${GL5_OBSTACLE_PARAMS_FILE:-}"
   -e GL5_REGION_FILE=/mac-runtime/gl5_region.json)
 
 echo "중계기 경유 :: 컨테이너 -> 호스트 $HOST_IP (실제 센서 $SENSOR_IP), 수신 포트 $PC_PORT"
