@@ -100,37 +100,7 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    open vnc://localhost:5901
    ```
 
-## 5. 종료
-
-터미널 2에서 **Ctrl+C**로 드라이버·RViz를 종료합니다. 컨테이너도 함께 삭제됩니다.
-터미널 1에서 **Ctrl+C**로 중계기를 종료합니다.
-
-## 참고
-
-- **중계기가 필요한 이유:** GL5는 데이터를 이더넷 브로드캐스트 프레임으로 보냅니다. $\color{blue}{\textsf{macOS 커널은 이 프레임을 버리므로}}$, 중계기가 `tcpdump`로 받아 컨테이너에 다시 보내 줍니다.
-- **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
-- **파이썬 코드 수정:** `src/` 아래 `.py`를 Mac에서 고치고 실습을 다시 실행하면 바로 반영됩니다. C++(`gl5_driver`, `gl5_rviz_plugins`)을 고쳤을 때만 `bash mac/start-lidar.sh shell`로 들어가 `bash scripts/build.sh`를 실행합니다.
-- **배경 학습:** RViz 패널의 **Learn Background**를 영역을 비운 상태에서 누르면 벽·고정물을 배경으로 학습해 감지에서 제외합니다. 센서를 크게 옮겼으면 다시 누릅니다.
-- **컨테이너 셸:** `bash mac/start-lidar.sh shell`
-- **RViz가 느릴 때:** mac은 RViz를 컨테이너 안에서 소프트웨어 렌더링하므로 CPU를 많이 씁니다.
-  10코어 기준 기본 구성이 약 900%를 쓰니, 코어가 적은 기기에서는 다음을 차례로 시도합니다.
-  `bash mac/start-lidar.sh scan_matcher:=false` (ICP 스캔 매칭 생략, 약 370% 절약) →
-  `GL5_VNC_GEOMETRY=1100x700x24 bash mac/start-lidar.sh` (화면을 줄여 렌더링 부담 감소).
-- **ICP 스캔 매칭 화면:** `bash mac/start-lidar.sh rviz_config:=/opt/lidar_workshop/src/gl5_bringup/rviz/gl5_odom.rviz`
-  로 주황색 이동 경로와 누적 스캔을 봅니다.
-- **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
-
-## 패키지 구조
-
-| 패키지 | 역할 |
-|---|---|
-| `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
-| `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
-| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
-| `gl5_rviz_plugins` | RViz 영역 설정 패널 |
-| `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
-
-## 실습 단계 (mac_practice 브랜치)
+## 5. 실습 (mac_practice 브랜치)
 
 이 브랜치는 네 함수의 본문이 비어 있습니다. 각 단계에서 원리를 설명한 뒤 함수를 채우고, 테스트로 확인하고, 실행해 봅니다.
 비어 있는 함수는 `raise NotImplementedError`로 표시되어 있고, 채우기 전에는 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다. 그래서 1단계만 풀어도 실습이 돌아갑니다.
@@ -171,3 +141,34 @@ docker exec -it lidar-workshop /ros_entrypoint.sh \
 기대 결과: 1단계에서는 영역 안 물체에 빨간 박스, 밖은 초록. 2단계에서는 벽·고정물이 회색 배경이 되어 박스가 사라지고 새로 놓은 물체만 잡힘.
 3단계에서는 영역 밖에서 걸어 들어올 때 초록 → 노랑(점선 예측, `in1.3s`) → 빨강. 4단계에서는 센서를 들고 움직이면 주황색 경로와 누적 스캔이 그려지고,
 2단계 배경도 센서 회전을 따라가게 됩니다.
+
+## 6. 종료
+
+터미널 2에서 **Ctrl+C**로 드라이버·RViz를 종료합니다. 컨테이너도 함께 삭제됩니다.
+터미널 1에서 **Ctrl+C**로 중계기를 종료합니다.
+
+## 참고
+
+- **중계기가 필요한 이유:** GL5는 데이터를 이더넷 브로드캐스트 프레임으로 보냅니다. $\color{blue}{\textsf{macOS 커널은 이 프레임을 버리므로}}$, 중계기가 `tcpdump`로 받아 컨테이너에 다시 보내 줍니다.
+- **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
+- **파이썬 코드 수정:** `src/` 아래 `.py`를 Mac에서 고치고 실습을 다시 실행하면 바로 반영됩니다. C++(`gl5_driver`, `gl5_rviz_plugins`)을 고쳤을 때만 `bash mac/start-lidar.sh shell`로 들어가 `bash scripts/build.sh`를 실행합니다.
+- **배경 학습:** RViz 패널의 **Learn Background**를 영역을 비운 상태에서 누르면 벽·고정물을 배경으로 학습해 감지에서 제외합니다. 센서를 크게 옮겼으면 다시 누릅니다.
+- **컨테이너 셸:** `bash mac/start-lidar.sh shell`
+- **RViz가 느릴 때:** mac은 RViz를 컨테이너 안에서 소프트웨어 렌더링하므로 CPU를 많이 씁니다.
+  10코어 기준 기본 구성이 약 900%를 쓰니, 코어가 적은 기기에서는 다음을 차례로 시도합니다.
+  `bash mac/start-lidar.sh scan_matcher:=false` (ICP 스캔 매칭 생략, 약 370% 절약) →
+  `GL5_VNC_GEOMETRY=1100x700x24 bash mac/start-lidar.sh` (화면을 줄여 렌더링 부담 감소).
+- **ICP 스캔 매칭 화면:** `bash mac/start-lidar.sh rviz_config:=/opt/lidar_workshop/src/gl5_bringup/rviz/gl5_odom.rviz`
+  로 주황색 이동 경로와 누적 스캔을 봅니다.
+- **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
+
+## 패키지 구조
+
+| 패키지 | 역할 |
+|---|---|
+| `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
+| `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
+| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
+| `gl5_rviz_plugins` | RViz 영역 설정 패널 |
+| `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
+
