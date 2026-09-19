@@ -100,11 +100,6 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    open vnc://localhost:5901
    ```
 
-   &nbsp;
-
-5. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
-   영역은 `mac/.local/gl5_region.json`에 자동 저장됩니다.
-
 ## 5. 종료
 
 터미널 2에서 **Ctrl+C**로 드라이버·RViz를 종료합니다. 컨테이너도 함께 삭제됩니다.
