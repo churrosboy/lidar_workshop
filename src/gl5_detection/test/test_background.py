@@ -67,21 +67,16 @@ class BackgroundTest(unittest.TestCase):
         self.assertGreater(foreground_count(model, room_scan(extra=[(2.0, -1.0, 0.2)])), 10)
         self.assertGreater(foreground_count(learned(), room_scan(pillar=False)), 5)
 
-    def test_small_sensor_rotation_is_absorbed_and_objects_still_detected(self):
+    def test_rotated_pose_keeps_scan_on_the_map(self):
+        # 센서가 조금 돌아간 상황입니다. 포즈를 따라가는 일은 4단계 ICP 몫이라
+        # 여기서는 포즈를 직접 넣어 두고, 그 포즈에서 지도 대조와 시야 가장자리
+        # 처리가 맞는지만 봅니다. (포즈 추적 자체는 test_background_alignment.py)
         model = learned()
         turned = make_transform(0.05, -0.03, math.radians(8))
+        model.pose = turned
         self.assertEqual(foreground_count(model, room_scan(turned)), 0)
-        self.assertTrue(model.aligned)
-        self.assertAlmostEqual(math.degrees(math.atan2(model.pose[1, 0], model.pose[0, 0])), 8, delta=0.5)
         self.assertGreater(foreground_count(model, room_scan(turned, extra=[(2.0, -1.0, 0.2)])), 10)
         self.assertLess(foreground_count(model, room_scan(turned)), 3)
-
-    def test_large_jump_freezes_pose_and_flags_misalignment(self):
-        model = learned()
-        moved = make_transform(1.5, 1.0, math.radians(60))
-        model.foreground(room_scan(moved), ANGLE_MIN, ANGLE_INC)
-        self.assertFalse(model.aligned)
-        self.assertTrue(np.allclose(model.pose, np.eye(3)))
 
     def test_validation(self):
         with self.assertRaises(ValueError):

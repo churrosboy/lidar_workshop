@@ -123,12 +123,15 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 채우기 전에는 `raise NotImplementedError`가 걸려 있어 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다.
 그래서 1단계만 풀어도 실습이 돌아갑니다. 완성본은 `mac` 브랜치에 있습니다.
 
+각 단계의 채점은 그 단계까지만 풀면 전부 통과하도록 나눠 두었습니다. 4단계를 구현하면 2단계 배경이 센서 움직임을
+따라가게 되는데, 그 부분은 4단계 채점인 `test_background_alignment.py`가 봅니다.
+
 | 단계 | 주제 | 채우는 함수 | 채점 |
 |---|---|---|---|
 | 1 | 군집화 | `src/gl5_detection/gl5_detection/detection_core.py` → `cluster_scan` | `pytest test/test_clustering.py test/test_roi_geometry.py` |
 | 2 | 배경 차분 | `src/gl5_detection/gl5_detection/background.py` → `BackgroundModel.foreground` | `pytest test/test_background.py` |
 | 3 | 진입 예측 | `src/gl5_detection/gl5_detection/prediction.py` → `predict_entry` | `pytest test/test_prediction.py` |
-| 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `pytest test/test_icp.py` |
+| 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `gl5_localization`에서 `pytest test/test_icp.py`<br>`gl5_detection`에서 `pytest test/test_background_alignment.py` |
 
 단계별 실행 (앞 단계 기능만 켠 설정으로 확인합니다):
 
