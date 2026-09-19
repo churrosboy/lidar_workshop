@@ -100,7 +100,17 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    open vnc://localhost:5901
    ```
 
-## 5. 실습 (mac_practice 브랜치)
+## 5. 패키지 구조
+
+| 패키지 | 역할 |
+|---|---|
+| `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
+| `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
+| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
+| `gl5_rviz_plugins` | RViz 영역 설정 패널 |
+| `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
+
+## 6. 실습 (mac_practice 브랜치)
 
 이 브랜치는 네 함수의 본문이 비어 있습니다. 각 단계에서 원리를 설명한 뒤 함수를 채우고, 테스트로 확인하고, 실행해 봅니다.
 비어 있는 함수는 `raise NotImplementedError`로 표시되어 있고, 채우기 전에는 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다. 그래서 1단계만 풀어도 실습이 돌아갑니다.
@@ -142,7 +152,7 @@ docker exec -it lidar-workshop /ros_entrypoint.sh \
 3단계에서는 영역 밖에서 걸어 들어올 때 초록 → 노랑(점선 예측, `in1.3s`) → 빨강. 4단계에서는 센서를 들고 움직이면 주황색 경로와 누적 스캔이 그려지고,
 2단계 배경도 센서 회전을 따라가게 됩니다.
 
-## 6. 종료
+## 7. 종료
 
 터미널 2에서 **Ctrl+C**로 드라이버·RViz를 종료합니다. 컨테이너도 함께 삭제됩니다.
 터미널 1에서 **Ctrl+C**로 중계기를 종료합니다.
@@ -161,14 +171,3 @@ docker exec -it lidar-workshop /ros_entrypoint.sh \
 - **ICP 스캔 매칭 화면:** `bash mac/start-lidar.sh rviz_config:=/opt/lidar_workshop/src/gl5_bringup/rviz/gl5_odom.rviz`
   로 주황색 이동 경로와 누적 스캔을 봅니다.
 - **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
-
-## 패키지 구조
-
-| 패키지 | 역할 |
-|---|---|
-| `gl5_driver` | 센서 수신, `/scan`·`/points` 발행 |
-| `gl5_detection` | 감지 영역 편집, 장애물 감지·추적 |
-| `gl5_localization` | ICP 스캔 매칭으로 센서 이동 궤적 추정 |
-| `gl5_rviz_plugins` | RViz 영역 설정 패널 |
-| `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
-
