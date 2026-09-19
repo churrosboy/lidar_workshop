@@ -92,8 +92,12 @@ class ObstacleNode(Node):
         try:
             return function(*args)
         except NotImplementedError as exc:
-            self.get_logger().error(f'{name} 미구현: {where} 를 채우세요. {exc}',
-                                    throttle_duration_sec=5.0)
+            # 기능마다 따로 스로틀합니다. rclpy의 throttle_duration_sec는 호출 줄 위치로
+            # 묶이기 때문에, 여기서 그대로 쓰면 먼저 걸린 기능 하나만 로그가 나갑니다.
+            now = time.monotonic()
+            if now - self.notice_times.get(name, -1e9) >= 5.0:
+                self.notice_times[name] = now
+                self.get_logger().error(f'{name} 미구현: {where} 를 채우세요. {exc}')
             return fallback() if callable(fallback) else fallback
 
     # 프레임, 각도, 거리 메타데이터와 유효 반사 존재 여부 검사
@@ -270,6 +274,7 @@ class ObstacleNode(Node):
         self.last_valid_scan_time: float | None = None
         self.state = 'NO_REGION'
         self.menu_notice = ''
+        self.notice_times: dict[str, float] = {}
 
     # 퍼블리셔, 서브스크라이버, /gl5/region/* 서비스 생성
     def create_ros_interfaces(self) -> None:

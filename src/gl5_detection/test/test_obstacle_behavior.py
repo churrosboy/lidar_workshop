@@ -49,6 +49,7 @@ class DetectorHarness(ObstacleNode):
         self.prediction = prediction
         self.state = 'NO_REGION'
         self.menu_notice = ''
+        self.notice_times = {}
         self.visualization = RegionVisualization(
             self.frame, self.label_height, lambda: self.get_clock().now().to_msg(),
             self.warning_time,
