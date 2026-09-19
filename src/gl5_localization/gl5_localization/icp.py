@@ -82,16 +82,27 @@ def icp(src: np.ndarray, dst, init=None, iterations=20, max_dist=0.5, tolerance=
         p = current[matched]
         q = target.points[neighbours[matched]]
         n = target.normals[neighbours[matched]]
+        # point-to-line 오차를 보정량 (dx, dy, dtheta) 에 대해 1차 근사한 것입니다.
+        # 대응쌍 하나가 방정식 한 줄을 만듭니다:  jacobian @ [dx, dy, dtheta] ~= residual
+        #   jacobian : 점을 조금 움직였을 때 오차가 얼마나 변하는지
+        #   residual : 지금 남아 있는 오차 (대응점까지의 거리를 벽의 법선 방향으로 잰 값)
+        jacobian = np.column_stack((n[:, 0], n[:, 1], n[:, 0] * -p[:, 1] + n[:, 1] * p[:, 0]))
+        residual = np.einsum('ij,ij->i', n, q - p)
         # ========================== Insert Your Code ==========================
-
-
-
-
-
-
-
-
-
+        # 1) 위 연립방정식을 최소제곱으로 풀어 이번 회차의 보정량을 구합니다.
+        #    np.linalg.lstsq(jacobian, residual, rcond=1e-6) 을 쓰면 되고,
+        #    반환값의 첫 번째 원소가 [dx, dy, dtheta] 입니다.
+        #
+        # 2) 발산 검사: dx, dy, dtheta 가 유한하지 않거나,
+        #    math.hypot(dx, dy) 가 MAX_STEP_M 보다 크거나 abs(dtheta) 가 MAX_STEP_RAD 보다 크면
+        #    정합이 터진 것이므로 return initial, 0.0 으로 빠져나갑니다.
+        #
+        # 3) 보정량을 변환으로 바꿔 누적합니다.
+        #    make_transform(dx, dy, dtheta) 로 step 을 만든 뒤
+        #      transform = step @ transform     (전체 변환에 누적)
+        #      current = apply(step, current)   (다음 회차를 위해 점도 같이 움직입니다)
+        #
+        # 4) 보정량이 tolerance 보다 작아졌으면 수렴한 것이므로 break 합니다.
 
         raise NotImplementedError('4단계 icp')
         # ========================== Insert Your Code ==========================

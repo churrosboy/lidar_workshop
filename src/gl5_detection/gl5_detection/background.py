@@ -88,19 +88,32 @@ class BackgroundModel:
         self._align(points)
         aligned = icp.apply(self.pose, points)
         frame = np.asarray(ranges, dtype=float)
+        # 정렬된 점마다 배경 지도에서 가장 가까운 점까지의 거리입니다.
+        distance, _ = self.target.tree.query(aligned)
         # ========================== Insert Your Code ==========================
-
-
-
-
-
-
-
-
-
+        # keep 을 만드세요. 이번 스캔의 점 하나하나가 "전경(장애물)인가"를 담는
+        # True/False 배열입니다.
+        #
+        #   배경 지도에서 충분히 떨어진 점이 전경입니다. 허용 오차는 두 부분입니다.
+        #     self.margin : 고정 여유 (m)
+        #     self.ratio  : 거리에 비례하는 여유. 먼 점일수록 각도 오차가 커집니다.
+        #   이번 스캔에서 각 점의 거리는 frame[index] 입니다.
+        #
+        #   distance 와 frame[index] 는 길이가 같은 numpy 배열이라
+        #   반복문 없이 배열끼리 비교하면 True/False 배열이 바로 나옵니다.
 
         raise NotImplementedError('2단계 BackgroundModel.foreground')
         # ========================== Insert Your Code ==========================
+
+        # 배경을 학습할 때 보지 못한 시야 가장자리는 제외합니다. 센서가 조금 돌아가면
+        # 지도에 없는 바깥쪽을 보게 되는데, 그걸 장애물로 오해하지 않기 위한 처리입니다.
+        heading = np.arctan2(aligned[:, 1], aligned[:, 0])
+        low, high = self.map_sector
+        keep &= (heading >= low + 0.02) & (heading <= high - 0.02)
+        # 전경으로 남긴 빔만 원래 거리를 돌려주고 나머지는 inf(무효)로 채웁니다.
+        out = np.full(len(frame), np.inf)
+        out[index[keep]] = frame[index[keep]]
+        return out.tolist()
 
     # ICP로 포즈 갱신, 실패하거나 튀면 이전 포즈 유지 (ICP 미구현이면 센서 고정 가정)
     def _align(self, points: np.ndarray) -> None:

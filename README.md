@@ -31,7 +31,7 @@ ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
 
 ```bash
 cd ~
-git clone --branch mac_practice --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+git clone --branch mac_practice_1 --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
 cd lidar_workshop
 docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
@@ -110,11 +110,13 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
 | `gl5_rviz_plugins` | RViz 영역 설정 패널 |
 | `gl5_bringup` | 전체 노드 실행과 RViz 설정 |
 
-## 6. 실습 (mac_practice 브랜치)
+## 6. 실습 (mac_practice_1 브랜치)
 
-이 브랜치는 네 함수의 본문이 비어 있습니다. 각 단계에서 원리를 설명한 뒤 함수를 채우고, 테스트로 확인하고, 실행해 봅니다.
-비어 있는 함수는 `raise NotImplementedError`로 표시되어 있고, 채우기 전에는 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다. 그래서 1단계만 풀어도 실습이 돌아갑니다.
-완성본은 `mac` 브랜치에 있습니다.
+이 브랜치는 네 함수의 **핵심 부분만** 비어 있습니다. 좌표 변환이나 numpy 관용구처럼 짧은 시간에 유도하기 어려운 코드는
+채워져 있고, 그 단계에서 배워야 할 판단 몇 줄만 `Insert Your Code` 블록으로 남겨 두었습니다. 블록 안 주석이 무엇을 쓸지 알려 줍니다.
+각 단계에서 원리를 설명한 뒤 빈칸을 채우고, 테스트로 확인하고, 실행해 봅니다.
+채우기 전에는 `raise NotImplementedError`가 걸려 있어 노드가 5초마다 `미구현` 로그를 내며 그 기능만 건너뜁니다.
+그래서 1단계만 풀어도 실습이 돌아갑니다. 완성본은 `mac` 브랜치에 있습니다.
 
 | 단계 | 주제 | 채우는 함수 | 채점 |
 |---|---|---|---|

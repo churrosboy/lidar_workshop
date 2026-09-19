@@ -86,16 +86,24 @@ def cluster_scan(ranges, angle_min, angle_increment, range_min, range_max, polyg
             groups.append(current.copy())
         current.clear()
     for i, distance in enumerate(ranges):
+        # 무효한 빔은 건너뜁니다 (거리가 inf/NaN 이거나 센서 유효 범위 밖).
+        if not math.isfinite(distance) or distance <= 0 or not range_min <= distance <= range_max:
+            continue
+        # 극좌표(거리, 각도) -> 센서 기준 직교좌표 (x, y)
+        angle = angle_min + i * angle_increment
+        point = (distance * math.cos(angle), distance * math.sin(angle))
         # ========================== Insert Your Code ==========================
-
-
-
-
-
-
-
-
-
+        # 위에서 만든 point 를 가지고 아래 세 가지를 처리하세요.
+        #
+        #   1) polygon 이 주어졌는데(None 이 아닌데) point 가 그 밖이라면
+        #      지금까지 모은 묶음을 flush() 로 끊고 이 점은 버립니다 (continue).
+        #      폴리곤 안/밖 판정은 이 파일의 inside(point, polygon) 을 씁니다.
+        #
+        #   2) current 에 앞점이 있고, 그 앞점과 point 사이 거리가 max_gap 보다 멀다면
+        #      다른 물체가 시작된 것이므로 flush() 로 끊습니다.
+        #      단 이때 point 는 버리지 않습니다. 두 점 사이 거리는 math.dist(a, b) 입니다.
+        #
+        #   3) point 를 current 에 추가합니다.
 
         raise NotImplementedError('1단계 cluster_scan')
         # ========================== Insert Your Code ==========================
