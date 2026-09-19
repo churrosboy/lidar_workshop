@@ -100,6 +100,11 @@ IFACE=$(bash mac/find_iface.sh) && echo "라이다 어댑터: $IFACE" &&
    open vnc://localhost:5901
    ```
 
+   &nbsp;
+
+5. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
+   영역은 `mac/.local/gl5_region.json`에 자동 저장됩니다.
+
 ## 5. 패키지 구조
 
 | 패키지 | 역할 |
