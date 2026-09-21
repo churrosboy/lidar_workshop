@@ -5,7 +5,7 @@ package_name = 'gl5_detection'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
@@ -18,7 +18,6 @@ setup(
     maintainer_email='dhkim@example.com',
     description='GL5 region editing, obstacle detection and tracking',
     license='BSD-3-Clause',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'gl5_obstacle_node = gl5_detection.gl5_obstacle_node:main',
