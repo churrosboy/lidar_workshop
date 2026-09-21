@@ -29,7 +29,6 @@ _archive_/
 .local/
 .venv/
 venv/
-.pytest_cache/
 .cache/
 
 # Local credentials and process state
