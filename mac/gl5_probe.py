@@ -23,7 +23,7 @@ import time
 
 from gl5_protocol import (
     BI_DEV2PC, BI_PC2DEV, CAT_ETHERNET_INFO, CAT_FW_VERSION, CAT_SERIAL_NUM,
-    CAT_STREAM_DATA, CAT_STREAM_ENABLE, META_BYTES, PAGES_PER_FRAME, SM_GET,
+    CAT_STREAM_DATA, CAT_STREAM_ENABLE, META_BYTES, SM_GET,
     SM_SET, build_packet, parse_ethernet_info, parse_packet,
 )
 
@@ -164,6 +164,8 @@ def main(argv=None):
 
     sources = {}
     pages = {}
+    # 프레임당 페이지 수는 기종마다 다릅니다(GL5 6, GL3 4). 패킷 헤더의 값을 씁니다.
+    page_length = None
     packets = 0
     frames = 0
     first_frame = None
@@ -184,7 +186,8 @@ def main(argv=None):
             continue
         if parsed["cat"] == CAT_STREAM_DATA:
             pages[parsed["page_idx"]] = pages.get(parsed["page_idx"], 0) + 1
-            if parsed["page_idx"] == PAGES_PER_FRAME - 1:
+            page_length = parsed["page_length"]
+            if parsed["page_idx"] == page_length - 1:
                 frames += 1
             if first_frame is None and parsed["page_idx"] == 0:
                 first_frame = parsed
@@ -203,8 +206,10 @@ def main(argv=None):
     print(f"  출발지별 패킷 수: {sources if sources else '없음'}")
     if pages:
         print(f"  페이지 번호 분포: {report['pages_seen']}")
-        if sorted(pages) != list(range(PAGES_PER_FRAME)):
-            print(f"    [경고] 0~{PAGES_PER_FRAME - 1} 이 모두 보이지 않습니다.")
+        print(f"  프레임당 페이지 수(헤더): {page_length}  (GL5 6, GL3 4)")
+        report["page_length"] = page_length
+        if sorted(pages) != list(range(page_length)):
+            print(f"    [경고] 0~{page_length - 1} 이 모두 보이지 않습니다.")
     if first_frame is not None:
         n = struct.unpack_from("<H", first_frame["payload"], 0)[0] \
             if len(first_frame["payload"]) >= 2 else 0

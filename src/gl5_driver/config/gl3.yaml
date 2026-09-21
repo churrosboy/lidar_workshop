@@ -1,6 +1,7 @@
 gl5_node:
   ros__parameters:
-    # GL3: 180 deg horizontal FOV, 1000 points per scan. Same UDP protocol as GL5.
+    # GL3: 180 deg horizontal FOV. FW 22.12.21 sends 2000 points in 8 pages at 20 Hz
+    # (older firmware: 1000 points in 4 pages). Same UDP protocol as GL5.
     lidar_type: "GL3"
     # Adjust if the GL3 is configured with a different IP/port (check with the SOSLAB tool).
     sensor_ip: "10.110.1.2"

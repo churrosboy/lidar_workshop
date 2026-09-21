@@ -1,7 +1,7 @@
 gl5_node:
   ros__parameters:
     # Sensor model: "GL5" (270 deg) or "GL3" (180 deg). See gl3.yaml for GL3.
-    lidar_type: "GL5"
+    lidar_type: "GL3"
     # Verified on hardware: SDK UDP port is 2000 (2020 refused).
     sensor_ip: "10.110.1.2"
     sensor_port: 2000

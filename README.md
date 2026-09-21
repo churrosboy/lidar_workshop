@@ -1,4 +1,4 @@
-# SOSLAB GL5 ROS 2 실습
+# SOSLAB GL3 ROS 2 실습
 
 macOS(Apple Silicon) + Docker Desktop 기준.
 ROS 2·SDK·드라이버는 Docker 이미지 안에서 설치·빌드됩니다.
@@ -55,12 +55,16 @@ python3 --version
 
 ```bash
 cd ~
-git clone --branch mac_practice --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
+git clone --branch mac_prac_gl3 --recurse-submodules https://github.com/churrosboy/lidar_workshop.git
 cd lidar_workshop
 docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
 
 기본 연결: 센서 `10.110.1.2:2000` → PC `10.110.1.3:3000`.
+이 브랜치는 GL3(화각 180°, 스캔당 2000점, 약 20 Hz) 기준입니다.
+센서 주소가 다르면 `src/gl5_driver/config/gl5.yaml`의 `sensor_ip`를 수정합니다.
+(패키지·파일 이름의 `gl5`는 GL5 실습에서 물려받은 이름이고, 설정은 같은 파일의 `lidar_type: "GL3"`가 정합니다.
+GL5를 쓰려면 `lidar_type`을 `"GL5"`로 바꿉니다.)
 
 코드 파일은 VS Code로 열어 확인 및 수정이 가능합니다. VS Code에서 `lidar_workshop` 폴더를 엽니다.
 
@@ -115,7 +119,7 @@ bash mac/start-lidar.sh
 ```
 
 `Received ... frames` 대신 `GL5 stream command not acknowledged`가 나오면 터미널 1의 중계기가 켜져 있는지 확인합니다.
-`Invalid pageLength`가 반복되면 `gl5.yaml`의 `lidar_type`이 연결한 센서와 다른 것입니다.
+`Invalid pageLength`가 반복되면 `gl5.yaml`의 `lidar_type`이 연결한 센서와 다르거나, 이미지를 이 브랜치로 다시 빌드하지 않은 것입니다.
 
 ### 3-5. RViz 화면 열기 (터미널 3)
 
@@ -191,7 +195,7 @@ RViz에서 **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
      bash mac/start-lidar.sh scan_matcher:=false
    ```
 
-   켜진 직후 약 2초 동안 배경을 학습합니다. 그동안 **영역을 비우고 라이다를 움직이지 않습니다.**
+   켜진 직후 약 4초 동안 배경을 학습합니다. 그동안 **영역을 비우고 라이다를 움직이지 않습니다.**
 3. **화면에서 확인:**
    - [ ] 벽·고정물이 **회색 점**(배경)으로 바뀌고 그 박스가 사라짐
    - [ ] 새로 놓은 물체만 박스로 잡힘

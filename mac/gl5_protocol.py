@@ -40,6 +40,7 @@ CAT_NAMES = {
 SM_NAMES = {SM_SET: "SET", SM_GET: "GET", SM_STREAM: "STREAM", SM_ERROR: "ERROR"}
 
 # GL5.h 의 고정값. 프레임 하나는 반드시 6페이지이고 화각은 270도입니다.
+# GL3.h 는 4페이지, 1000점, 180도입니다. 진단 도구는 패킷 헤더의 page_length 를 씁니다.
 PAGES_PER_FRAME = 6
 NUM_POINTS = 1500
 H_FOV_DEG = 270.0
