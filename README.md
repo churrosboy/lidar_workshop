@@ -40,6 +40,7 @@ docker build --platform linux/amd64 -t lidar-workshop:humble-amd64 .
 
 기본 연결: 센서 `10.110.1.2:2000` → PC `10.110.1.3:3000`.
 다른 센서나 GL3를 쓰면 `windows/settings.json`의 `sensor_ip`, `lidar_type`(`"GL5"` 또는 `"GL3"`)을 수정합니다.
+GL3는 화각 180°, 스캔당 2000점, 약 20 Hz입니다. GL3 펌웨어(22.12.21)가 프레임을 8페이지로 보내는데 SDK는 4페이지로 고정해 두어서, `patches/`의 패치를 이미지 빌드 때 SDK에 적용합니다 (`scripts/patch_sdk.sh`).
 
 ## 3. 유선 LAN 설정 (최초 1회)
 
@@ -70,11 +71,11 @@ ping 10.110.1.2
    [gl5_node-1] [INFO] [1789568238.811711542] [gl5_node]: Received 240 frames
    ```
 
-   `Invalid pageLength`가 반복되면 `settings.json`의 `lidar_type`이 연결한 센서와 다른 것입니다.
+   `Invalid pageLength`가 반복되면 `settings.json`의 `lidar_type`이 연결한 센서와 다르거나, 이미지를 최신 상태로 다시 빌드하지 않은 것입니다.
 
    &nbsp;
 
-2. **다른 PowerShell 창**에서 실제 스캔 수신 주기를 확인합니다. 약 40 Hz가 나오면 정상입니다.
+2. **다른 PowerShell 창**에서 실제 스캔 수신 주기를 확인합니다. GL5는 약 40 Hz, GL3는 약 20 Hz가 나오면 정상입니다.
 
    ```powershell
    docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan

@@ -1,4 +1,4 @@
-.git
+**/.git
 tools
 scripts/verify.sh
 scripts/test_hardware.sh

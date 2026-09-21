@@ -1,0 +1,58 @@
+diff --git a/soslab_api/internal/Sensor/include/GL3.h b/soslab_api/internal/Sensor/include/GL3.h
+index a6c6b70..89a9865 100644
+--- a/soslab_api/internal/Sensor/include/GL3.h
++++ b/soslab_api/internal/Sensor/include/GL3.h
+@@ -82,7 +82,10 @@ namespace soslab
+ 		int prePageIdx = -1;
+ 		bool assemFrame = false;
+ 		size_t numAllPoints = 1000;
+-		static constexpr uint8_t kPageLengthFixed = 4;
++		// Firmware decides the page count (4 pages / 1000 points in older units,
++		// 8 pages / 2000 points in FW 22.12.21). Latched from page 0 of each frame.
++		static constexpr uint8_t kPageLengthMax = 16;
++		uint8_t framePageLength = 0;
+ 		std::vector<uint8_t> payloadAccum_;
+ 		double h_fov_ = 180.0;
+ 
+diff --git a/soslab_api/internal/Sensor/src/GL3.cpp b/soslab_api/internal/Sensor/src/GL3.cpp
+index 60c8370..55304dc 100644
+--- a/soslab_api/internal/Sensor/src/GL3.cpp
++++ b/soslab_api/internal/Sensor/src/GL3.cpp
+@@ -325,16 +325,17 @@ bool soslab::GL3::parseStreamData(const std::vector<uint8_t>& packetData)
+ 		return false;
+ 	}
+ 
+-	if (header.pageLength != kPageLengthFixed)
++	if (header.pageLength == 0 || header.pageLength > kPageLengthMax ||
++		(header.pageIdx != 0 && assemFrame && header.pageLength != framePageLength))
+ 	{
+-		std::cerr << "[Error] Invalid pageLength. Expected=" << static_cast<int>(kPageLengthFixed)
++		std::cerr << "[Error] Invalid pageLength. Expected=" << static_cast<int>(framePageLength)
+ 			<< ", got=" << static_cast<int>(header.pageLength) << std::endl;
+ 		assemFrame = false;
+ 		payloadAccum_.clear();
+ 		prePageIdx = -1;
+ 		return false;
+ 	}
+-	if (header.pageIdx >= kPageLengthFixed)
++	if (header.pageIdx >= header.pageLength)
+ 	{
+ 		std::cerr << "[Error] Invalid PageIdx. Expected=" << static_cast<int>(header.pageIdx)
+ 			<< ", got=" << static_cast<int>(header.pageLength) << std::endl;
+@@ -390,6 +391,7 @@ bool soslab::GL3::parseStreamData(const std::vector<uint8_t>& packetData)
+ 		payloadAccum_.clear();
+ 		assemFrame = true;
+ 		prePageIdx = 0;
++		framePageLength = header.pageLength;
+ 	}
+ 	else
+ 	{
+@@ -417,7 +419,7 @@ bool soslab::GL3::parseStreamData(const std::vector<uint8_t>& packetData)
+ 
+ 	payloadAccum_.insert(payloadAccum_.end(), dataPtr, dataPtr + dataSize);
+ 
+-	if (header.pageIdx != (kPageLengthFixed - 1))
++	if (header.pageIdx != (framePageLength - 1))
+ 	{
+ 		return true;
+ 	}
