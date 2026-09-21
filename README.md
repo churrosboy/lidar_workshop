@@ -124,7 +124,25 @@ docker stop lidar-workshop
 | 3 | 진입 예측 | `src/gl5_detection/gl5_detection/prediction.py` → `predict_entry` | `bash scripts/run.sh scan_matcher:=false` |
 | 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `bash scripts/run.sh rviz_config:=.../rviz/gl5_odom.rviz` |
 
-파이썬 파일을 고친 뒤 노드에 반영하려면 `bash scripts/build.sh`를 다시 실행합니다.
+표의 `실행` 명령은 컨테이너 안에서 실행합니다. `.../`는 `/opt/lidar_workshop/src/gl5_detection` 처럼 해당 패키지 경로로 바꿔 적습니다.
+
+### 코드 고치고 반영하기
+
+VS Code 확장 **Dev Containers**를 설치하고, 좌측 하단 `><` → **Attach to Running Container** → `lidar-workshop` 을 선택합니다.
+컨테이너 안 `/opt/lidar_workshop` 을 열어 파일을 고친 뒤, VS Code 터미널에서 빌드합니다.
+
+```bash
+bash scripts/build.sh
+```
+
+빌드가 끝나면 실습 실행 창에서 **Ctrl+C** 후 `.\windows\start-lidar.cmd` 로 다시 실행합니다.
+
+고친 코드는 컨테이너 안에만 남습니다. 실습이 끝난 뒤 결과물을 보관하려면 PowerShell에서 꺼냅니다.
+
+```powershell
+docker cp lidar-workshop:/opt/lidar_workshop/src .\src-backup
+```
+
 아래 기대 결과가 RViz에 그대로 나오면 해당 단계를 제대로 구현한 것입니다.
 
 기대 결과: 1단계에서는 영역 안 물체에 빨간 박스, 밖은 초록. 2단계에서는 벽·고정물이 회색 배경이 되어 박스가 사라지고 새로 놓은 물체만 잡힘.
