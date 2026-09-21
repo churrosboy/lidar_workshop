@@ -13,9 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-numpy \
     python3-scipy \
     python3-yaml \
-    python3-pytest \
     qtbase5-dev \
-    ros-humble-ament-cmake-gtest \
     ros-humble-interactive-markers \
     ros-humble-rviz2 \
     && rm -rf /var/lib/apt/lists/*
