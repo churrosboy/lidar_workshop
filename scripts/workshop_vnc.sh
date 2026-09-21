@@ -19,6 +19,11 @@ export DISPLAY=":$DISPLAY_NUM"
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export QT_X11_NO_MITSHM=1
+# numpy 의 OpenBLAS 는 코어 수만큼 스레드를 만들고, 일이 끝나도 잠깐 바쁘게 돌며 기다립니다.
+# 40 Hz 스캔은 그 대기가 끝나기 전에 다시 들어와서 노드마다 코어 두세 개를 헛돌게 합니다.
+# 여기서 다루는 행렬은 작아 1 스레드여도 느려지지 않습니다.
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 export XDG_RUNTIME_DIR=/tmp/runtime-root
 mkdir -p "$XDG_RUNTIME_DIR"
 

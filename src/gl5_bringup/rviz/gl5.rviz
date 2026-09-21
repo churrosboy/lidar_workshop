@@ -85,7 +85,7 @@ Visualization Manager:
   Global Options:
     Fixed Frame: laser
     Background Color: 18; 24; 32
-    Frame Rate: 30
+    Frame Rate: 15
   Tools:
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
