@@ -86,6 +86,46 @@ ping 10.110.1.2
 3. RViz: **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
    영역은 `windows/.local/gl5_region.json`에 자동 저장됩니다.
 
+## 4-1. 센서 없이 bag 파일로 실습
+
+센서가 없을 때는 저장소에 들어 있는 녹화 파일(rosbag)을 재생해서 §4와 아래 실습 단계를 똑같이 진행합니다.
+§1, §2는 동일하게 필요하고 §3(유선 LAN 설정)은 건너뜁니다.
+
+1. 저장소의 `bags\` 폴더에 GL5 녹화 두 개가 들어 있습니다(이미지를 빌드하면 컨테이너 안에도 있습니다).
+
+   | 이름 | 내용 | 쓰는 단계 |
+   |---|---|---|
+   | `gl5_sopcom_stationary` | 센서 고정, 사람이 드나듦 (108초) | 실습 1~3단계 |
+   | `gl5_sopcom_moving` | 센서를 들고 이동 (93초) | 실습 4단계 |
+
+   다른 bag을 받았으면 `windows\.local\bags\<이름>\`에 넣습니다(`metadata.yaml`과 `*.db3`가 든 폴더, 이름은 공백 없는 영문).
+
+   &nbsp;
+
+2. **일반 PowerShell**에서 bag 이름을 넘겨 실행합니다. 실습하는 동안 $\color{red}{\textsf{이 창은 계속 열어 둡니다.}}$
+
+   ```powershell
+   cd ~\lidar_workshop
+   .\windows\start-bag.cmd gl5_sopcom_stationary
+   ```
+
+   이름 대신 bag 폴더를 `start-bag.cmd` 위로 끌어다 놓아도 됩니다(다른 위치의 폴더는 `.local\bags`에 자동 복사).
+   인자 없이 실행하면 사용 가능한 bag 목록이 나옵니다.
+   `Received N frames` 대신 아래처럼 bag 재생 로그가 나오고, bag은 끝까지 가면 처음부터 반복 재생됩니다.
+
+   ```
+   [gl5_bag-1] [INFO] [...] [rosbag2_storage]: Opened database '/opt/lidar_workshop/bags/gl5_sopcom_stationary/gl5_sopcom_stationary_0.db3' for READ_ONLY.
+   ```
+
+   &nbsp;
+
+3. 수신 확인과 RViz 영역 그리기는 §4의 2, 3번과 같습니다.
+
+센서 실습과 다른 점:
+
+- bag이 되감길 때마다 스캔 매칭 오도메트리·경로·추적 박스가 초기화됩니다(`Odometry reset` 로그). 배경 지도는 재생 시작 후 처음 2초에서 학습한 것을 계속 씁니다.
+- 컨테이너 안에서 `bash scripts/run.sh`를 직접 실행할 때는 명령 뒤에 `bag:=gl5_sopcom_stationary`처럼 bag 이름을 붙입니다(아래 실습 단계 표 참고).
+
 ## 5. 종료
 
 실습 실행 창에서 **Ctrl+C**로 드라이버·RViz를 종료합니다.
@@ -100,7 +140,16 @@ docker stop lidar-workshop
 - **중계기가 필요한 이유:** 센서는 PC의 물리 LAN 주소로 UDP를 보내는데 Docker 컨테이너는 그 주소를 직접 받을 수 없습니다. `lidar_udp_relay.py`가 Windows에서 받아 컨테이너로 다시 보내 줍니다.
 - **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
 - **경로를 직접 지정하고 싶을 때:** `windows/settings.json`의 `python_exe`, `vcxsrv_exe`에 `/` 구분자로 적습니다. 비워 두면 실행할 때 자동으로 찾습니다.
-- **이미 실행 중이라는 오류:** `docker stop lidar-workshop` 후 다시 실행합니다.
+- **이미 실행 중이라는 오류:** 다른 창에서 실습이 돌고 있는 것입니다. 그 창을 **Ctrl+C**로 끝내거나 `docker stop lidar-workshop` 후 다시 실행합니다.
+- **bag 녹화 (강사용):** `start-lidar.cmd`가 돌고 있는 상태에서 **다른 PowerShell 창**에서 실행하고 **Ctrl+C**로 끝냅니다.
+  처음 2~3초는 감지 영역을 비우고 센서를 고정해 둡니다(배경 학습 구간). `windows\.local\bags\test1\`이 생기며 이 폴더를 압축해 배포합니다.
+  두 번째 녹화부터는 `test1`을 다른 이름으로 바꿉니다. 같은 이름이 이미 있으면 거부됩니다.
+
+  ```powershell
+  docker exec -it lidar-workshop /ros_entrypoint.sh ros2 bag record -o /windows-runtime/bags/test1 /scan /points
+  ```
+
+- **Linux에서 bag 재생:** `bash scripts/run.sh bag:=<이름>` (저장소 `bags/` 또는 절대경로 `bag:=/경로/bag폴더`).
 
 ## 패키지 구조
 
@@ -126,6 +175,7 @@ docker stop lidar-workshop
 | 4 | ICP 스캔 매칭 | `src/gl5_localization/gl5_localization/icp.py` → `icp` 반복 스텝 | `bash scripts/run.sh rviz_config:=.../rviz/gl5_odom.rviz` |
 
 파이썬 파일을 고친 뒤 노드에 반영하려면 `bash scripts/build.sh`를 다시 실행합니다.
+bag 파일로 실습할 때는 각 명령 뒤에 `bag:=<이름>`을 붙입니다. 예: `bash scripts/run.sh scan_matcher:=false bag:=gl5_sopcom_stationary`, 4단계는 `bag:=gl5_sopcom_moving`.
 아래 기대 결과가 RViz에 그대로 나오면 해당 단계를 제대로 구현한 것입니다.
 
 기대 결과: 1단계에서는 영역 안 물체에 빨간 박스, 밖은 초록. 2단계에서는 벽·고정물이 회색 배경이 되어 박스가 사라지고 새로 놓은 물체만 잡힘.
