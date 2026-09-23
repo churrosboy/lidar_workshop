@@ -63,6 +63,7 @@ venv/
 *.tgz
 *.bag
 *.db3
+!/bags/*/*.db3
 *.mcap
 *.pcap
 *.pcapng
