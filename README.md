@@ -41,7 +41,7 @@ docker build --platform linux/amd64 -t lidar-workshop:humble-amd64 .
 기본 연결: 센서 `10.110.1.2:2000` → PC `10.110.1.3:3000`.
 다른 센서나 GL3를 쓰면 `windows/settings.json`의 `sensor_ip`, `lidar_type`(`"GL5"` 또는 `"GL3"`)을 수정합니다.
 
-## 3. 유선 LAN 설정 (최초 1회)
+## 3. 유선 LAN 설정 (최초 1회) -> 녹화 파일 사용 시 불필요
 
 라이다 전원을 켜고 유선 LAN(또는 USB 이더넷 어댑터)으로 PC에 연결합니다.
 **PowerShell을 관리자 권한으로 열어** 실행합니다. 케이블이 꽂힌 유선 어댑터를 자동으로 찾아 `10.110.1.3/24`를 지정하고 방화벽을 엽니다. Wi-Fi는 그대로 유지됩니다.
