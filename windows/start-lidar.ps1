@@ -1,3 +1,4 @@
+param([switch]$BagMode, [string]$Bag = '')
 $ErrorActionPreference = 'Stop'
 $base = $PSScriptRoot
 . "$base\find-tools.ps1"
@@ -56,25 +57,70 @@ if ($names -contains $s.container) {
     Invoke-Docker create --name $s.container --label "soslab.windows.workspace=$runtime" -it --platform linux/amd64 -e DISPLAY=host.docker.internal:0 -e LIBGL_ALWAYS_SOFTWARE=1 -e QT_X11_NO_MITSHM=1 -e XAUTHORITY=/windows-runtime/rviz.Xauthority -e GL5_PARAMS_FILE=/windows-runtime/gl5.yaml -e GL5_REGION_FILE=/windows-runtime/gl5_region.json --mount "type=bind,source=$runtime,target=/windows-runtime" $s.image bash | Out-Null
 }
 Invoke-Docker start $s.container | Out-Null
-& $docker exec $s.container pgrep -x gl5_node | Out-Null
-if ($LASTEXITCODE -eq 0) { Write-Host 'LiDAR is already running.'; exit 0 }
-$hostLine = @(Invoke-Docker exec $s.container getent ahostsv4 host.docker.internal)[0]
-$hostIP = ($hostLine -split '\s+')[0]
-[void][System.Net.IPAddress]::Parse($hostIP)
-# Explicit floating-point YAML values are required by the ROS parameter types.
-$yaml = "gl5_node:`n  ros__parameters:`n    lidar_type: '$lidarType'`n    sensor_ip: '$hostIP'`n    sensor_port: $($s.relay_port)`n    pc_ip: '0.0.0.0'`n    pc_port: $($s.container_port)`n    frame_id: laser`n    range_min: 0.0`n    range_max: 60.0`n    angle_offset: 0.0`n"
-[IO.File]::WriteAllText((Join-Path $runtime 'gl5.yaml'), $yaml, (New-Object Text.UTF8Encoding($false)))
-$relayRunning = $false
-$pidPath = Join-Path $runtime 'relay.pid'
-if (Test-Path $pidPath) {
-    $relayId = [int](Get-Content $pidPath)
-    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$relayId"
-    $relayRunning = $p -and $p.CommandLine -like "*$base\lidar_udp_relay.py*"
+& $docker exec $s.container pgrep -f 'ros2 launch gl5_bringup' | Out-Null
+if ($LASTEXITCODE -eq 0) { Write-Host 'The workshop launch is already running in another window.'; exit 0 }
+$launchArgs = @()
+if ($BagMode) {
+    # Bag playback: no sensor, no relay. The container only sees windows\.local, so bags live in .local\bags.
+    $Bag = $Bag.Trim().TrimEnd('"')
+    $bagsDir = Join-Path $runtime 'bags'
+    New-Item -ItemType Directory -Path $bagsDir -Force | Out-Null
+    # Bags shipped with the repository (also inside the image) and bags the student added.
+    $shippedDir = Join-Path (Split-Path $base -Parent) 'bags'
+    $byName = @{}
+    foreach ($dir in @($shippedDir, $bagsDir)) {
+        if (Test-Path $dir) {
+            Get-ChildItem $dir -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'metadata.yaml') } | ForEach-Object { if (-not $byName.ContainsKey($_.Name)) { $byName[$_.Name] = $_.FullName } }
+        }
+    }
+    if (-not $Bag) {
+        if ($byName.Count) { Write-Host 'Available bags:'; $byName.Keys | Sort-Object | ForEach-Object { Write-Host "  $_   ($($byName[$_]))" } } else { Write-Host "No bags found in $shippedDir or $bagsDir." }
+        throw 'Usage: start-bag.cmd <name | path to a rosbag folder>'
+    }
+    if ($Bag -notmatch '[\\/:]' -and $byName.ContainsKey($Bag)) {
+        # run.sh resolves the name inside the container (shipped bags live in the image, others under /windows-runtime).
+        Write-Host "Bag: $($byName[$Bag])"
+        $launchArgs = @("bag:=$Bag")
+    } else {
+        if (-not (Test-Path $Bag)) { throw "Bag not found: $Bag (a name under $bagsDir or a path to a rosbag folder)" }
+        $bagDir = (Resolve-Path $Bag).Path
+        if (Test-Path $bagDir -PathType Leaf) { $bagDir = Split-Path $bagDir -Parent }
+        $bagDir = $bagDir.TrimEnd('\')
+        if (-not (Test-Path (Join-Path $bagDir 'metadata.yaml'))) { throw "A rosbag folder holding metadata.yaml is expected: $bagDir" }
+        if (-not $bagDir.StartsWith("$runtime\", [StringComparison]::OrdinalIgnoreCase)) {
+            $imported = Join-Path $bagsDir (Split-Path $bagDir -Leaf)
+            if (Test-Path $imported) {
+                Write-Host "Using the copy already imported at $imported (delete it to import again)."
+            } else {
+                Write-Host "Copying the bag into $imported ..."
+                Copy-Item -Path $bagDir -Destination $imported -Recurse
+            }
+            $bagDir = $imported
+        }
+        $bagInContainer = '/windows-runtime' + $bagDir.Substring($runtime.Length).Replace('\', '/')
+        Write-Host "Bag: $bagDir"
+        $launchArgs = @("bag:=$bagInContainer")
+    }
 }
-if (-not $relayRunning) {
-    $relay = Start-Process -FilePath $python -WindowStyle Hidden -ArgumentList "-u `"$base\lidar_udp_relay.py`" --sensor-ip $($s.sensor_ip) --sensor-port $($s.sensor_port) --pc-ip $($s.pc_ip) --pc-port $($s.pc_port) --relay-port $($s.relay_port)" -RedirectStandardOutput "$runtime\relay.log" -RedirectStandardError "$runtime\relay-error.log" -PassThru
-    $relay.Id | Set-Content $pidPath
-    Start-Sleep -Seconds 1
-    if ($relay.HasExited) { throw (Get-Content "$runtime\relay-error.log" -Raw) }
+if (-not $BagMode) {
+    $hostLine = @(Invoke-Docker exec $s.container getent ahostsv4 host.docker.internal)[0]
+    $hostIP = ($hostLine -split '\s+')[0]
+    [void][System.Net.IPAddress]::Parse($hostIP)
+    # Explicit floating-point YAML values are required by the ROS parameter types.
+    $yaml = "gl5_node:`n  ros__parameters:`n    lidar_type: '$lidarType'`n    sensor_ip: '$hostIP'`n    sensor_port: $($s.relay_port)`n    pc_ip: '0.0.0.0'`n    pc_port: $($s.container_port)`n    frame_id: laser`n    range_min: 0.0`n    range_max: 60.0`n    angle_offset: 0.0`n"
+    [IO.File]::WriteAllText((Join-Path $runtime 'gl5.yaml'), $yaml, (New-Object Text.UTF8Encoding($false)))
+    $relayRunning = $false
+    $pidPath = Join-Path $runtime 'relay.pid'
+    if (Test-Path $pidPath) {
+        $relayId = [int](Get-Content $pidPath)
+        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$relayId"
+        $relayRunning = $p -and $p.CommandLine -like "*$base\lidar_udp_relay.py*"
+    }
+    if (-not $relayRunning) {
+        $relay = Start-Process -FilePath $python -WindowStyle Hidden -ArgumentList "-u `"$base\lidar_udp_relay.py`" --sensor-ip $($s.sensor_ip) --sensor-port $($s.sensor_port) --pc-ip $($s.pc_ip) --pc-port $($s.pc_port) --relay-port $($s.relay_port)" -RedirectStandardOutput "$runtime\relay.log" -RedirectStandardError "$runtime\relay-error.log" -PassThru
+        $relay.Id | Set-Content $pidPath
+        Start-Sleep -Seconds 1
+        if ($relay.HasExited) { throw (Get-Content "$runtime\relay-error.log" -Raw) }
+    }
 }
-Invoke-Docker exec -it $s.container /ros_entrypoint.sh bash scripts/run.sh
+Invoke-Docker exec -it $s.container /ros_entrypoint.sh bash scripts/run.sh @launchArgs
