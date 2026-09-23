@@ -19,11 +19,12 @@
   <!-- Bag playback: absolute path of a rosbag2 folder (the one holding metadata.yaml) recorded from
        /scan and /points. Empty means the live sensor. With a bag the driver is skipped, the bag is
        replayed in a loop with /clock, and every node runs on simulated time so RViz and the
-       scan matcher share the bag's timeline (and reset cleanly when the loop restarts). -->
+       scan matcher follow the bag timeline (and reset cleanly when the loop restarts).
+       Bag paths must not contain spaces. -->
   <arg name="bag" default=""/>
   <arg name="bag_rate" default="1.0"/>
-  <arg name="driver" default="$(eval &quot;'$(var bag)' == ''&quot;)"/>
-  <arg name="use_sim_time" default="$(eval &quot;'$(var bag)' != ''&quot;)"/>
+  <arg name="driver" default="$(eval &quot;not '$(var bag)'&quot;)"/>
+  <arg name="use_sim_time" default="$(eval &quot;bool('$(var bag)')&quot;)"/>
 
   <!-- Stop the whole launch if the sensor driver exits. params_file is only read in live mode. -->
   <node pkg="gl5_driver" exec="gl5_node" name="gl5_node"
@@ -32,9 +33,9 @@
   </node>
 
   <!-- Bag player. It loops forever, so an exit means a bad path or storage error: stop everything. -->
-  <executable cmd="ros2 bag play '$(var bag)' --clock --loop --rate $(var bag_rate) --disable-keyboard-controls"
+  <executable cmd="ros2 bag play $(var bag) --clock --loop --rate $(var bag_rate) --disable-keyboard-controls"
               name="gl5_bag" output="screen" on_exit="shutdown"
-              if="$(eval &quot;'$(var bag)' != ''&quot;)"/>
+              unless="$(var driver)"/>
 
   <!-- Region editing, obstacle detection and tracking. -->
   <node pkg="gl5_detection" exec="gl5_obstacle_node" name="gl5_obstacle_detector"
