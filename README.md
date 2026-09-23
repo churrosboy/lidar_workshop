@@ -121,11 +121,6 @@ ping 10.110.1.2
 
 3. 수신 확인과 RViz 영역 그리기는 §4의 2, 3번과 같습니다.
 
-센서 실습과 다른 점:
-
-- bag이 되감길 때마다 스캔 매칭 오도메트리·경로·추적 박스가 초기화됩니다(`Odometry reset` 로그). 배경 지도는 재생 시작 후 처음 2초에서 학습한 것을 계속 씁니다.
-- 컨테이너 안에서 `bash scripts/run.sh`를 직접 실행할 때는 명령 뒤에 `bag:=gl5_sopcom_stationary`처럼 bag 이름을 붙입니다(아래 실습 단계 표 참고).
-
 ## 5. 종료
 
 실습 실행 창에서 **Ctrl+C**로 드라이버·RViz를 종료합니다.
@@ -141,14 +136,6 @@ docker stop lidar-workshop
 - **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
 - **경로를 직접 지정하고 싶을 때:** `windows/settings.json`의 `python_exe`, `vcxsrv_exe`에 `/` 구분자로 적습니다. 비워 두면 실행할 때 자동으로 찾습니다.
 - **이미 실행 중이라는 오류:** 다른 창에서 실습이 돌고 있는 것입니다. 그 창을 **Ctrl+C**로 끝내거나 `docker stop lidar-workshop` 후 다시 실행합니다.
-- **bag 녹화 (강사용):** `start-lidar.cmd`가 돌고 있는 상태에서 **다른 PowerShell 창**에서 실행하고 **Ctrl+C**로 끝냅니다.
-  처음 2~3초는 감지 영역을 비우고 센서를 고정해 둡니다(배경 학습 구간). `windows\.local\bags\test1\`이 생기며 이 폴더를 압축해 배포합니다.
-  두 번째 녹화부터는 `test1`을 다른 이름으로 바꿉니다. 같은 이름이 이미 있으면 거부됩니다.
-
-  ```powershell
-  docker exec -it lidar-workshop /ros_entrypoint.sh ros2 bag record -o /windows-runtime/bags/test1 /scan /points
-  ```
-
 - **Linux에서 bag 재생:** `bash scripts/run.sh bag:=<이름>` (저장소 `bags/` 또는 절대경로 `bag:=/경로/bag폴더`).
 
 ## 패키지 구조
