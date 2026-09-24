@@ -32,15 +32,9 @@
 
 ## 1. 준비 (최초 1회)
 
-### a. 터미널 열기
+아래 명령은 모두 터미널에서 입력합니다.
 
-이 문서의 명령은 모두 **터미널** 앱에 입력합니다.
-`command + space` → `터미널` 입력 → `Return`. 검은(또는 흰) 창이 열리고 커서가 깜빡입니다.
-
-명령은 **한 줄씩 복사해서 붙여넣고 `Return`** 을 누르면 됩니다.
-명령이 끝나면 커서가 다시 깜빡입니다. 그때 다음 명령을 넣습니다.
-
-### b. git 확인
+### a. git 확인
 
 ```bash
 git --version
@@ -50,7 +44,7 @@ git --version
 설치되어 있지 않으면 "커맨드 라인 개발자 도구를 설치하시겠습니까?" 팝업이 뜨는데 **설치**를 누릅니다.
 (팝업이 안 뜨면 `xcode-select --install` 을 입력합니다.) 몇 분 걸리고, 끝난 뒤 위 명령으로 다시 확인합니다.
 
-### c. Docker Desktop 설치
+### b. Docker Desktop 설치
 
 [Docker Desktop](https://www.docker.com/products/docker-desktop/)을 설치하고 **앱을 실행한 뒤** 확인합니다.
 
@@ -61,10 +55,9 @@ docker info --format '{{.OSType}} {{.Architecture}}'
 `linux aarch64` 가 나오면 정상입니다.
 
 - `command not found` → Docker Desktop이 설치되지 않았습니다.
-- `Cannot connect to the Docker daemon` → 앱이 꺼져 있습니다. 실행하고 상단 메뉴바의 고래 아이콘이
-  움직임을 멈출 때까지(30초 정도) 기다린 뒤 다시 입력합니다.
+- `Cannot connect to the Docker daemon` → 앱이 꺼져 있습니다.
 
-### d. VS Code 설치
+### c. VS Code 설치
 
 코드를 고칠 편집기입니다. [VS Code](https://code.visualstudio.com/)를 설치한 뒤 확인합니다.
 
@@ -89,9 +82,9 @@ cd lidar_workshop
 docker build --platform linux/arm64 -t lidar-workshop:humble-arm64 .
 ```
 
-`clone` 에는 녹화 파일 약 98MB가 포함돼 있어 1~3분 걸립니다.
-`docker build` 는 ROS 2와 RViz를 담은 실습 환경을 만드는 과정으로, 처음 한 번만 하고 **5~15분** 걸립니다.
-(네트워크 속도에 좌우됩니다. 중간에 글자가 빠르게 지나가는 것은 정상입니다.)
+`clone` 과정에는 녹화 파일 약 98MB가 포함되어 있어 약 1\~3분 걸립니다.
+`docker build` 는 ROS 2와 RViz를 담은 실습 환경을 만드는 과정으로, 처음 한 번만 하고 약 **5\~15분** 걸립니다.
+이미지 빌드 시간은 네트워크 속도에 따라 달라집니다. 중간에 글자가 빠르게 지나가는 것은 정상입니다.
 
 마지막에 아래처럼 `naming to ... lidar-workshop:humble-arm64 done` 이 나오면 성공입니다.
 
@@ -134,7 +127,7 @@ cd ~/lidar_workshop
 bash mac/start-bag.sh gl5_sopcom_stationary
 ```
 
-**실습 중에는 이 명령 대신 6장 각 단계의 실행 명령**을 씁니다.
+**실습 중에는 이 명령 대신 5장 각 단계의 실행 명령**을 씁니다.
 
 정상이면 접속 안내가 먼저 나오고, 이어서 재생 로그가 나옵니다.
 
@@ -209,37 +202,7 @@ docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
 
 ---
 
-## 4. 녹화 재생이 실물과 다른 점
-
-읽어 두면 "고장난 줄 알았는데 정상"인 상황을 대부분 피할 수 있습니다.
-
-- **끝까지 가면 처음으로 되돌아갑니다.** 화면이 갑자기 앞 장면으로 튀는 것은 정상입니다.
-  그 순간 추적 중이던 박스와 4단계의 주황색 경로는 **일부러 초기화**됩니다
-  (녹화 끝의 자세에 녹화 처음 장면을 이어 붙이면 경로가 엉키기 때문입니다).
-  4단계에서는 터미널 1에 이 줄이 한 번 나옵니다. 오류가 아닙니다.
-
-  ```
-  [gl5_scan_matcher-3] [INFO] ... Odometry reset: scan time moved backwards (bag replay restarted)
-  ```
-
-- **내가 직접 손을 흔들 수 없습니다.** 확인은 녹화 안에서 움직이는 사람으로 합니다.
-  사람이 나올 때까지 몇 초 기다려야 할 수 있습니다.
-
-- **영역은 녹화 장면에 맞춰 그립니다.** 초록 점이 벽처럼 둘러싸고 있고 그 안쪽 빈 공간으로
-  사람이 지나갑니다. 사람이 지나다니는 길목을 감싸도록 영역을 그리면 확인이 쉽습니다.
-
-- **배경 학습은 재생이 시작된 직후 약 2초 구간**을 씁니다. 그 구간에 사람이 이미 서 있었다면
-  사람까지 배경으로 외워 버립니다. 화면에서 사람이 없는 순간에 RViz 패널의
-  **Learn Background** 를 눌러 다시 학습시키면 됩니다.
-
-- **시각은 녹화의 시각**입니다(`/clock`). 모든 노드가 녹화 시계를 따라가므로,
-  터미널에 찍히는 시각이 오늘 날짜가 아니어도 정상입니다.
-
-- **점구름(`/points`) 화면은 없습니다.** 녹화에는 `/scan` 만 담겨 있어서 RViz 설정에서 아예 뺐습니다.
-
----
-
-## 5. 패키지 구조
+## 4. 패키지 구조
 
 | 패키지 | 역할 |
 |---|---|
@@ -253,7 +216,7 @@ docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
 
 ---
 
-## 6. 실습
+## 5. 실습
 
 네 함수의 본문이 비어 있습니다. 한 단계씩 **코드 채우기 → 실행 → 화면 확인** 순서로 진행합니다.
 
@@ -271,7 +234,7 @@ docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
 - 고친 뒤 $\color{yellow}{\textsf{command + S로 저장}}$하고 다시 실행하면 반영됩니다. (다시 빌드할 필요 없습니다.)
 - 아직 안 채운 함수가 있으면 터미널 1에 `미구현` 로그가 5초마다 나오고 **그 기능만 건너뜁니다.**
   프로그램이 죽지 않으니, 1단계만 채운 상태로 1단계를 확인해도 됩니다.
-- 단계를 바꿀 때는 터미널 1에서 `Ctrl+C` 로 끄고 새 명령으로 다시 켭니다.
+- $\color{red}{\textsf{단계를 바꿀 때는 터미널 1에서 Ctrl+C 로 끄고 새 명령으로 다시 켭니다.}}$
 - 영역은 한 번 그려 두면 계속 남습니다.
 
 ### 1단계 · 군집화
@@ -341,7 +304,7 @@ docker exec lidar-workshop /ros_entrypoint.sh ros2 topic hz /scan
 
 ---
 
-## 7. 내 녹화를 추가하기 (선택)
+## 6. 내 녹화를 추가하기 (선택)
 
 `bags/` 아래에 폴더로 넣으면 이름만으로 바로 쓸 수 있습니다. **이미지를 다시 빌드할 필요 없습니다.**
 
