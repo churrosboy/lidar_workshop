@@ -82,6 +82,10 @@ class ScanMatcherNode(Node):
                 f'Scan frame {msg.header.frame_id!r} != base_frame {self.base_frame!r}',
                 throttle_duration_sec=5.0)
             return
+        # 녹화 반복 재생(--loop)이 처음으로 돌아가면 더 오래된 시각이 들어옵니다. 녹화 끝의
+        # 키프레임에 녹화 첫 스캔을 맞추려 들지 않도록 오도메트리를 새로 시작합니다.
+        if self.last_stamp is not None and self.seconds(msg.header.stamp) < self.last_stamp:
+            self.reset_odometry('scan time moved backwards (bag replay restarted)', level='info')
         points = matching.scan_to_points(msg.ranges, msg.angle_min, msg.angle_increment,
                                          self.min_range, self.max_range, self.stride)
         if len(points) < self.min_points:
@@ -142,12 +146,13 @@ class ScanMatcherNode(Node):
         return f'{x:.2f}, {y:.2f}, {math.degrees(yaw):.1f} deg'
 
     # 포즈 손상 시 오도메트리 초기화
-    def reset_odometry(self, why: str) -> None:
-        self.get_logger().error(f'Odometry reset: {why}')
+    def reset_odometry(self, why: str, level: str = 'error') -> None:
+        getattr(self.get_logger(), level)(f'Odometry reset: {why}')
         self.keyframe = None
         self.odom_from_keyframe = np.eye(3)
         self.keyframe_from_sensor = np.eye(3)
         self.last_motion = np.eye(3)
+        self.last_stamp = None
         self.path.poses.clear()
 
     # 현재 포즈를 Odometry, Path, TF로 발행

@@ -1,11 +1,10 @@
 **/.git
 mac
+bags
 artifacts
 build
 install
 log
-SOSLAB_SDK/build
-SOSLAB_SDK/_archive_
 **/__pycache__
 *.pyc
 **/.local

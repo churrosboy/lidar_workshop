@@ -1,8 +1,12 @@
 <?xml version="1.0"?>
 <launch>
+  <!-- Bag playback only: this branch has no sensor driver. `bag` is the absolute path of a rosbag2
+       folder (the one holding metadata.yaml). scripts/run.sh turns a bag name into that path, so
+       a name is what you normally pass. Bag paths must not contain spaces. -->
+  <arg name="bag"/>
+  <arg name="bag_rate" default="1.0"/>
+
   <!-- Configuration files and optional nodes. -->
-  <arg name="params_file"
-       default="$(find-pkg-share gl5_driver)/config/gl5.yaml"/>
   <arg name="rviz" default="true"/>
   <arg name="rviz_config" default="$(find-pkg-share gl5_bringup)/rviz/gl5.rviz"/>
   <arg name="obstacles" default="true"/>
@@ -16,27 +20,31 @@
   <arg name="region_file"
        default="$(env GL5_REGION_FILE $(eval &quot;__import__('os').path.join(__import__('os').getcwd(), 'gl5_region.json')&quot;))"/>
 
-  <!-- Stop the whole launch if the sensor driver exits. -->
-  <node pkg="gl5_driver" exec="gl5_node" name="gl5_node"
-        output="screen" on_exit="shutdown">
-    <param from="$(var params_file)"/>
-  </node>
+  <!-- Bag player. It publishes /clock and loops forever, so an exit means a bad path or a storage
+       error: stop everything. Every node below runs on simulated time and therefore follows the bag
+       timeline, which also lets them reset cleanly when the loop restarts. -->
+  <executable cmd="ros2 bag play $(var bag) --clock --loop --rate $(var bag_rate) --disable-keyboard-controls"
+              name="gl5_bag" output="screen" on_exit="shutdown"/>
 
   <!-- Region editing, obstacle detection and tracking. -->
   <node pkg="gl5_detection" exec="gl5_obstacle_node" name="gl5_obstacle_detector"
         output="screen" if="$(var obstacles)">
     <param from="$(var obstacle_params_file)"/>
     <param name="region_file" value="$(var region_file)"/>
+    <param name="use_sim_time" value="true"/>
   </node>
 
   <!-- Sensor odometry from scan matching (optional). -->
   <node pkg="gl5_localization" exec="gl5_scan_matcher" name="gl5_scan_matcher"
         output="screen" if="$(var scan_matcher)">
     <param from="$(var scan_matcher_params_file)"/>
+    <param name="use_sim_time" value="true"/>
   </node>
 
-  <!-- Point cloud, region and obstacle visualization. -->
+  <!-- Region and obstacle visualization. -->
   <node pkg="rviz2" exec="rviz2" name="gl5_rviz"
         output="screen" if="$(var rviz)"
-        args="-d $(var rviz_config)"/>
+        args="-d $(var rviz_config)">
+    <param name="use_sim_time" value="true"/>
+  </node>
 </launch>

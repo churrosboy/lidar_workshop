@@ -66,23 +66,6 @@ Visualization Manager:
       Position Transformer: XYZ
       Alpha: 1
       Decay Time: 30
-    - Class: rviz_default_plugins/PointCloud2
-      Name: GL5 points
-      Enabled: false
-      Topic:
-        Value: /points
-        Reliability Policy: Best Effort
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Depth: 5
-      Size (Pixels): 2
-      Style: Points
-      Color Transformer: Intensity
-      Channel Name: intensity
-      Autocompute Intensity Bounds: true
-      Position Transformer: XYZ
-      Alpha: 1
-      Decay Time: 0
   Global Options:
     Fixed Frame: odom
     Background Color: 18; 24; 32

@@ -10,8 +10,6 @@
 /install/
 /log/
 /artifacts/
-/SOSLAB_SDK/build/
-/SOSLAB_SDK/_archive_/
 __pycache__/
 *.py[cod]
 
@@ -59,6 +57,8 @@ venv/
 *.tgz
 *.bag
 *.db3
+# 실습용 녹화는 저장소에 함께 담습니다. 위의 *.db3 규칙보다 뒤에 와야 합니다.
+!/bags/*/*.db3
 *.mcap
 *.pcap
 *.pcapng

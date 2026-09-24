@@ -23,9 +23,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/lidar_workshop
 COPY . .
 
-RUN test -f SOSLAB_SDK/CMakeLists.txt || \
-    (echo "SOSLAB_SDK submodule is missing; clone with --recurse-submodules" >&2 && exit 1)
-
 RUN BUILD_JOBS="${BUILD_JOBS}" bash scripts/build.sh
 
 COPY scripts/docker-entrypoint.sh /ros_entrypoint.sh

@@ -4,7 +4,6 @@ import math
 import os
 from pathlib import Path
 import tempfile
-import time
 
 import numpy as np
 import rclpy
@@ -48,11 +47,13 @@ class ObstacleNode(Node):
 
     # 스캔 1개 처리: 배경 학습/차분 → 전체 군집화 → 추적 → 영역 판정
     def scan_callback(self, msg: LaserScan) -> None:
-        now = time.monotonic()
+        now = self.now_seconds()
         if not self.is_valid_scan(msg):
             self.reset_detection()
             return
-        if self.last_valid_scan_time is None or now - self.last_valid_scan_time > self.timeout:
+        # 시간 간격이 timeout을 넘거나 시각이 뒤로 갔으면(녹화 반복 재생이 처음으로 돌아갔을 때)
+        # 추적과 점유 상태를 버려, 지난 회차의 흔적이 남지 않게 합니다.
+        if self.last_valid_scan_time is None or not 0.0 <= now - self.last_valid_scan_time <= self.timeout:
             self.occupancy_filter.reset()
             self.tracker.reset()
         self.last_valid_scan_time = now
@@ -87,6 +88,10 @@ class ObstacleNode(Node):
                 self.predict_horizon, self.predict_step, self.min_predict_speed)
         self.occupancy_filter.update(any(track.in_region for track in self.box_tracks), now)
 
+    # 노드 시계의 현재 시각(초). 녹화 재생(use_sim_time)에서는 벽시계가 아니라 녹화 시각을 따른다
+    def now_seconds(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
     # 기능 함수를 실행하되, 아직 채워지지 않은(NotImplementedError) 경우 안내 로그 후 대체값 반환
     def run_feature(self, name, where, fallback, function, *args):
         try:
@@ -116,7 +121,7 @@ class ObstacleNode(Node):
             self.state = 'EDITING'
         elif not self.region:
             self.state = 'NO_REGION'
-        elif self.last_valid_scan_time is None or time.monotonic() - self.last_valid_scan_time > self.timeout:
+        elif self.last_valid_scan_time is None or self.now_seconds() - self.last_valid_scan_time > self.timeout:
             self.state = 'NO_DATA'
             self.clear_detection_results()
         elif self.background is not None and self.background.learning:
