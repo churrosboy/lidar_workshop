@@ -138,6 +138,52 @@ RViz에서 **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
 
 다음에 실행할 때 `이미 실행 중`이라는 오류가 나면 `docker stop lidar-workshop` 후 다시 실행합니다.
 
+## 3B. 센서 없이 bag 파일로 실습
+
+라이다가 없을 때는 저장소에 들어 있는 녹화 파일(rosbag)을 재생해서 3장과 5장의 실습을 똑같이 진행합니다.
+1장, 2장은 동일하게 필요하고, 3-1~3-3(라이다 꽂기·IP 지정·중계기)은 건너뜁니다. 관리자 비밀번호도 필요 없습니다.
+재생기는 녹화된 스캔을 원래 속도(40Hz)로 다시 내보내므로 프로그램 입장에서는 라이다가 꽂힌 것과 똑같고, 고칠 코드도 같습니다.
+
+### 3B-1. 들어 있는 녹화
+
+저장소의 `bags/` 폴더에 실제 GL5로 찍은 녹화 두 개가 있습니다.
+
+| 이름 | 내용 | 길이 | 쓰는 단계 |
+|---|---|---|---|
+| `gl5_sopcom_stationary` | 센서를 고정해 두고 사람이 드나듦 | 108초 | 실습 **1~3단계** |
+| `gl5_sopcom_moving` | 센서를 손에 들고 이동 | 93초 | 실습 **4단계** |
+
+다른 녹화를 받았으면 `mac/.local/bags/<이름>/`에 넣습니다(`metadata.yaml`과 `*.db3`가 든 폴더, 이름은 공백 없는 영문).
+이름이 기억나지 않으면 인자 없이 실행하면 목록이 나옵니다.
+
+```bash
+cd ~/lidar_workshop
+bash mac/start-bag.sh
+```
+
+### 3B-2. 실행 (터미널 1)
+
+녹화 이름을 붙여 실행합니다. 실습하는 동안 $\color{red}{\textsf{이 창은 계속 열어 둡니다.}}$
+
+```bash
+cd ~/lidar_workshop
+bash mac/start-bag.sh gl5_sopcom_stationary
+```
+
+**실습 중에는 이 명령 대신 5장 각 단계의 실행 명령**에서 `start-lidar.sh`를 `start-bag.sh <녹화 이름>`으로 바꿔 씁니다.
+
+`Received ... frames` 대신 아래처럼 재생 로그가 나오면 녹화를 제대로 읽은 것입니다.
+녹화는 **끝까지 가면 자동으로 처음부터 다시 재생**됩니다.
+
+```
+[gl5_bag-1] [INFO] [...] [rosbag2_storage]: Opened database '/opt/lidar_workshop/bags/gl5_sopcom_stationary/gl5_sopcom_stationary_0.db3' for READ_ONLY.
+```
+
+### 3B-3. 그다음
+
+RViz 화면 열기, 감지 영역 그리기는 **3-5, 3-6**과 같습니다(터미널 번호만 하나씩 당겨집니다).
+끌 때는 **터미널 1**에서 Ctrl+C 하면 RViz와 재생기가 함께 꺼지고 컨테이너도 삭제됩니다.
+
 ## 4. 패키지 구조
 
 | 패키지 | 역할 |
@@ -165,6 +211,13 @@ RViz에서 **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
 - 아직 안 채운 함수가 있으면 터미널 2에 `미구현` 로그가 5초마다 나오고 그 기능만 건너뜁니다. 오류가 아닙니다.
 
 라이다를 받으면 **3. 라이다 연결·실행**을 3-1부터 하고, 3-4에서 아래 단계의 **실행** 명령을 씁니다. 끝나면 **3-7. 종료·반납**으로 넘깁니다.
+라이다 없이 하려면 **3B. 센서 없이 bag 파일로 실습**대로 하고, 아래 **실행** 명령의 `bash mac/start-lidar.sh`를 `bash mac/start-bag.sh <녹화 이름>`으로 바꿉니다.
+1~3단계는 `gl5_sopcom_stationary`, 4단계는 `gl5_sopcom_moving`을 씁니다. 예:
+
+```bash
+GL5_OBSTACLE_PARAMS_FILE=/opt/lidar_workshop/src/gl5_detection/config/obstacles_step1.yaml \
+  bash mac/start-bag.sh gl5_sopcom_stationary scan_matcher:=false
+```
 
 ### 1단계 · 군집화
 
@@ -236,7 +289,7 @@ RViz에서 **Draw Region → 꼭짓점 3개 이상 클릭 → Finish Region**.
 - **장애물 감지 설정:** `src/gl5_detection/config/obstacles.yaml`을 수정하고 실습을 다시 실행하면 적용됩니다. 이미지는 다시 빌드하지 않아도 됩니다.
 - **파이썬 코드 수정:** `src/` 아래 `.py`를 Mac에서 고치고 실습을 다시 실행하면 바로 반영됩니다. C++(`gl5_driver`, `gl5_rviz_plugins`)을 고쳤을 때만 `bash mac/start-lidar.sh shell`로 들어가 `bash scripts/build.sh`를 실행합니다.
 - **배경 학습:** RViz 패널의 **Learn Background**를 영역을 비운 상태에서 누르면 벽·고정물을 배경으로 학습해 감지에서 제외합니다. 센서를 크게 옮겼으면 다시 누릅니다.
-- **컨테이너 셸:** `bash mac/start-lidar.sh shell`
+- **컨테이너 셸:** `bash mac/start-lidar.sh shell` (라이다 없이는 `bash mac/start-bag.sh shell`)
 - **RViz가 느릴 때:** mac은 RViz를 컨테이너 안에서 소프트웨어 렌더링하므로 CPU를 많이 씁니다.
   10코어 기준 기본 구성이 약 900%를 쓰니, 코어가 적은 기기에서는 다음을 차례로 시도합니다.
   `bash mac/start-lidar.sh scan_matcher:=false` (ICP 스캔 매칭 생략, 약 370% 절약) →
